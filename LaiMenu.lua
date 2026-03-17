@@ -22,15 +22,15 @@ local keybinds = {
 
 local listeningForAction = nil
 local listeningButton = nil
-local currentEspColor = Color3.fromRGB(0, 170, 255) -- Đổi mặc định sang Xanh Neon cho hợp Theme
+local currentEspColor = Color3.fromRGB(0, 170, 255) 
 local currentFlyMode = "Camera"
 
--- Theme Colors (Giao diện mới)
+-- Theme Colors
 local Theme = {
 	MainBG = Color3.fromRGB(15, 15, 20),
 	ElementBG = Color3.fromRGB(30, 30, 40),
-	ElementHover = Color3.fromRGB(40, 40, 50),
-	AccentON = Color3.fromRGB(0, 170, 255), -- Xanh Neon
+	ElementHover = Color3.fromRGB(45, 45, 55),
+	AccentON = Color3.fromRGB(0, 170, 255), 
 	AccentOFF = Color3.fromRGB(30, 30, 40),
 	TextMain = Color3.fromRGB(255, 255, 255),
 	TextSub = Color3.fromRGB(180, 180, 200),
@@ -62,7 +62,7 @@ mainStroke.Color = Theme.Border
 mainStroke.Thickness = 1.5
 mainStroke.Parent = mainFrame
 
--- Title Area (Gradient)
+-- Title Area
 local titleFrame = Instance.new("Frame")
 titleFrame.Size = UDim2.new(1, 0, 0, 40)
 titleFrame.BackgroundColor3 = Color3.fromRGB(255, 255, 255)
@@ -113,7 +113,7 @@ menuBindCorner.CornerRadius = UDim.new(0, 6)
 menuBindCorner.Parent = menuBindBtn
 
 -- ==========================================
--- 3. Create the 3-Tab System
+-- 3. Create the 3-Tab System (Trở lại kiểu Button khối)
 -- ==========================================
 local tabBar = Instance.new("Frame")
 tabBar.Size = UDim2.new(1, 0, 0, 35)
@@ -122,36 +122,37 @@ tabBar.BackgroundColor3 = Theme.MainBG
 tabBar.BorderSizePixel = 0
 tabBar.Parent = mainFrame
 
-local function createTabButton(text, pos, width)
-	local btn = Instance.new("TextButton")
-	btn.Size = UDim2.new(width, 0, 1, 0)
-	btn.Position = UDim2.new(pos, 0, 0, 0)
-	btn.BackgroundColor3 = Theme.MainBG
-	btn.TextColor3 = Theme.TextSub
-	btn.Font = Enum.Font.GothamBold
-	btn.TextSize = 13
-	btn.BorderSizePixel = 0
-	btn.Parent = tabBar
-	
-	local line = Instance.new("Frame")
-	line.Name = "ActiveLine"
-	line.Size = UDim2.new(1, 0, 0, 2)
-	line.Position = UDim2.new(0, 0, 1, -2)
-	line.BackgroundColor3 = Theme.AccentON
-	line.BorderSizePixel = 0
-	line.Visible = false
-	line.Parent = btn
-	
-	return btn
-end
-
-local mainTabBtn = createTabButton("Main", 0, 0.33)
-local tpTabBtn = createTabButton("Teleport", 0.33, 0.34)
-local emotesTabBtn = createTabButton("Emotes", 0.67, 0.33)
-
--- Active state for Main Tab
+local mainTabBtn = Instance.new("TextButton")
+mainTabBtn.Size = UDim2.new(0.33, 0, 1, 0)
+mainTabBtn.BackgroundColor3 = Theme.ElementHover -- Active color
+mainTabBtn.Text = "Main"
 mainTabBtn.TextColor3 = Theme.TextMain
-mainTabBtn.ActiveLine.Visible = true
+mainTabBtn.Font = Enum.Font.GothamBold
+mainTabBtn.TextSize = 13
+mainTabBtn.BorderSizePixel = 0
+mainTabBtn.Parent = tabBar
+
+local tpTabBtn = Instance.new("TextButton")
+tpTabBtn.Size = UDim2.new(0.34, 0, 1, 0)
+tpTabBtn.Position = UDim2.new(0.33, 0, 0, 0)
+tpTabBtn.BackgroundColor3 = Theme.MainBG
+tpTabBtn.Text = "Teleport"
+tpTabBtn.TextColor3 = Theme.TextSub
+tpTabBtn.Font = Enum.Font.GothamBold
+tpTabBtn.TextSize = 13
+tpTabBtn.BorderSizePixel = 0
+tpTabBtn.Parent = tabBar
+
+local emotesTabBtn = Instance.new("TextButton")
+emotesTabBtn.Size = UDim2.new(0.33, 0, 1, 0)
+emotesTabBtn.Position = UDim2.new(0.67, 0, 0, 0)
+emotesTabBtn.BackgroundColor3 = Theme.MainBG
+emotesTabBtn.Text = "Emotes"
+emotesTabBtn.TextColor3 = Theme.TextSub
+emotesTabBtn.Font = Enum.Font.GothamBold
+emotesTabBtn.TextSize = 13
+emotesTabBtn.BorderSizePixel = 0
+emotesTabBtn.Parent = tabBar
 
 local function createContainer(name, visible)
 	local container = Instance.new("ScrollingFrame")
@@ -185,7 +186,7 @@ local mainContainer = createContainer("MainContainer", true)
 local tpContainer = createContainer("TpContainer", false)
 local emotesContainer = createContainer("EmotesContainer", false)
 
--- Helper Functions for Modern UI
+-- Helper Functions
 local function addStroke(obj)
 	local stroke = Instance.new("UIStroke")
 	stroke.Color = Theme.Border
@@ -316,15 +317,12 @@ local walkSpeedInput = createInput(mainContainer, "Walk Speed (Def: 16)", 6)
 walkSpeedInput.Text = "16"
 createPresetRow(mainContainer, "Speed:", {16, 50, 100}, walkSpeedInput, 7)
 
--- TÍNH NĂNG MỚI: JUMP POWER & INF JUMP
 local jumpButton = createFeatureRow(mainContainer, "Toggle JumpPower", "JumpPower", 8)
 local jumpInput = createInput(mainContainer, "Jump Power (Def: 50)", 9)
 jumpInput.Text = "50"
 createPresetRow(mainContainer, "Power:", {50, 100, 250}, jumpInput, 10)
 
 local infJumpButton = createFeatureRow(mainContainer, "Infinite Jump", "InfJump", 11)
-
--- CÁC TÍNH NĂNG KHÁC
 local noclipButton = createFeatureRow(mainContainer, "Toggle Noclip", "Noclip", 12)
 local espButton = createFeatureRow(mainContainer, "Toggle ESP", "ESP", 13)
 
@@ -342,22 +340,22 @@ for i, emoteName in ipairs(emoteList) do
 	emoteButtons[emoteName] = btn
 end
 
--- Tab Switching Logic
+-- Tab Switching Logic (Cập nhật màu Nút)
 local function switchTab(activeBtn, activeContainer)
 	mainContainer.Visible = false
 	tpContainer.Visible = false
 	emotesContainer.Visible = false
 	
+	mainTabBtn.BackgroundColor3 = Theme.MainBG
+	tpTabBtn.BackgroundColor3 = Theme.MainBG
+	emotesTabBtn.BackgroundColor3 = Theme.MainBG
 	mainTabBtn.TextColor3 = Theme.TextSub
 	tpTabBtn.TextColor3 = Theme.TextSub
 	emotesTabBtn.TextColor3 = Theme.TextSub
-	mainTabBtn.ActiveLine.Visible = false
-	tpTabBtn.ActiveLine.Visible = false
-	emotesTabBtn.ActiveLine.Visible = false
 	
 	activeContainer.Visible = true
+	activeBtn.BackgroundColor3 = Theme.ElementHover
 	activeBtn.TextColor3 = Theme.TextMain
-	activeBtn.ActiveLine.Visible = true
 end
 
 mainTabBtn.MouseButton1Click:Connect(function() switchTab(mainTabBtn, mainContainer) end)
@@ -371,18 +369,17 @@ local isFlying, isCustomWalk, isCustomJump, isInfJump, isNoclipping, isESP = fal
 local bodyVelocity, bodyGyro
 local flyConnection, walkConnection, jumpConnection, infJumpConnection, noclipConnection
 
--- Helper: Cập nhật màu nút UI
 local function updateButtonState(btn, isOn)
 	if isOn then
 		btn.BackgroundColor3 = Theme.AccentON
-		btn.TextColor3 = Color3.fromRGB(25, 25, 30) -- Chữ đen khi nền sáng
+		btn.TextColor3 = Color3.fromRGB(25, 25, 30) 
 	else
 		btn.BackgroundColor3 = Theme.ElementBG
 		btn.TextColor3 = Theme.TextMain
 	end
 end
 
--- TÌM NGƯỜI CHƠI (TELEPORT)
+-- Teleport Logic
 local function FindPlayer(partialName)
 	if not partialName or partialName == "" then return nil end
 	local lowerName = string.lower(partialName)
@@ -429,7 +426,7 @@ tpDashBtn.MouseButton1Click:Connect(function()
 	end
 end)
 
--- FLY
+-- Fly Logic
 flyModeBtn.MouseButton1Click:Connect(function()
 	if currentFlyMode == "Camera" then
 		currentFlyMode = "Hover"
@@ -496,7 +493,6 @@ local function ToggleFly()
 	end
 end
 
--- WALK SPEED
 local function ToggleWalkSpeed()
 	isCustomWalk = not isCustomWalk
 	updateButtonState(walkButton, isCustomWalk)
@@ -513,7 +509,6 @@ local function ToggleWalkSpeed()
 	end
 end
 
--- JUMP POWER
 local function ToggleJumpPower()
 	isCustomJump = not isCustomJump
 	updateButtonState(jumpButton, isCustomJump)
@@ -536,7 +531,6 @@ local function ToggleJumpPower()
 	end
 end
 
--- INFINITE JUMP
 local function ToggleInfJump()
 	isInfJump = not isInfJump
 	updateButtonState(infJumpButton, isInfJump)
@@ -553,7 +547,6 @@ local function ToggleInfJump()
 	end
 end
 
--- NOCLIP
 local function ToggleNoclip()
 	isNoclipping = not isNoclipping
 	updateButtonState(noclipButton, isNoclipping)
@@ -573,7 +566,6 @@ local function ToggleNoclip()
 	end
 end
 
--- ESP
 local function ToggleESP()
 	isESP = not isESP
 	updateButtonState(espButton, isESP)
@@ -604,13 +596,18 @@ task.spawn(function()
 	end
 end)
 
--- Hook Buttons
 flyButton.MouseButton1Click:Connect(ToggleFly)
 walkButton.MouseButton1Click:Connect(ToggleWalkSpeed)
 jumpButton.MouseButton1Click:Connect(ToggleJumpPower)
 infJumpButton.MouseButton1Click:Connect(ToggleInfJump)
 noclipButton.MouseButton1Click:Connect(ToggleNoclip)
 espButton.MouseButton1Click:Connect(ToggleESP)
+
+menuBindBtn.MouseButton1Click:Connect(function()
+	listeningForAction = "Menu"
+	listeningButton = menuBindBtn
+	menuBindBtn.Text = "..."
+end)
 
 for emoteName, btn in pairs(emoteButtons) do
 	btn.MouseButton1Click:Connect(function()
@@ -625,19 +622,32 @@ for emoteName, btn in pairs(emoteButtons) do
 end
 
 -- ==========================================
--- 6. Dynamic Keybind Input System
+-- 6. Dynamic Keybind Input System (CÓ ESCAPE ĐỂ HỦY)
 -- ==========================================
 local isMenuOpen = true
 local openPosition = UDim2.new(0, 20, 0.5, -250)
 local closedPosition = UDim2.new(0, -320, 0.5, -250)
 
 UserInputService.InputBegan:Connect(function(input, gameProcessed)
+	-- Đang chờ nhập Keybind mới
 	if listeningForAction then
-		if input.UserInputType == Enum.UserInputType.Keyboard and input.KeyCode ~= Enum.KeyCode.Unknown then
-			keybinds[listeningForAction] = input.KeyCode
-			listeningButton.Text = "[" .. input.KeyCode.Name .. "]"
-			listeningForAction = nil
-			listeningButton = nil
+		if input.UserInputType == Enum.UserInputType.Keyboard then
+			
+			-- NẾU NHẤN ESCAPE -> HỦY THAO TÁC, TRẢ LẠI CHỮ CŨ
+			if input.KeyCode == Enum.KeyCode.Escape then
+				listeningButton.Text = "[" .. keybinds[listeningForAction].Name .. "]"
+				listeningForAction = nil
+				listeningButton = nil
+				return
+			end
+			
+			-- NẾU NHẤN PHÍM BÌNH THƯỜNG -> GÁN PHÍM
+			if input.KeyCode ~= Enum.KeyCode.Unknown then
+				keybinds[listeningForAction] = input.KeyCode
+				listeningButton.Text = "[" .. input.KeyCode.Name .. "]"
+				listeningForAction = nil
+				listeningButton = nil
+			end
 		end
 		return 
 	end
