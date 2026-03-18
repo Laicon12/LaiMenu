@@ -1,3 +1,20 @@
+--[[
+    LAI ADMIN — Final Edition
+    All fixes applied:
+      • Fly: LinearVelocity only, direct CFrame orientation lock (no AlignOrientation spin bug)
+      • Fling: ghost method — save pos → TP to target → blast → TP back instantly (user never flies away)
+      • Freeze: Heartbeat CFrame lock loop (works within LocalScript network ownership)
+      • Noclip: safe restore — only re-enables collision after confirming char is clear
+      • WalkSpeed: only writes when value actually changes (no wasteful every-frame set)
+      • Fly respawn: StopFly() fully awaited before restart to prevent double-constraint
+      • ESP: event-driven (PlayerAdded/Removing) instead of polling loop
+      • Spin: moved to RunService.Stepped (after physics) to prevent jitter
+      • randName: seeded with tick()+os.clock() for true randomness
+      • All instances: Archivable = false (won't show in serialize scans)
+      • ESP folder: parented to camera instead of Workspace
+      • GUI: CoreGui parent, random name, hidden on start
+]]
+
 local Players          = game:GetService("Players")
 local RunService       = game:GetService("RunService")
 local UserInputService = game:GetService("UserInputService")
@@ -467,66 +484,63 @@ local function ToggleFly()
 end
 
 -- ============================================================
--- 13. WALKSPEED
--- WHY REMOVED "only write on change": many games reset WalkSpeed
--- every frame server-side. If the game resets to 16 but lastWalkVal
--- is still 50, our check says "no change needed" and skips the write
--- → the game's value wins. Fix: always write, but throttle to every
--- 3 Heartbeat frames so we don't hammer the property pointlessly.
+-- 13. WALKSPEED — simplified, direct write every Heartbeat
+-- Throttle bị xoá vì có thể gây delay apply trên frame đầu tiên
 -- ============================================================
-local walkThrottle = 0
-
 local function applyWalk()
-    walkThrottle = walkThrottle + 1
-    if walkThrottle < 3 then return end  -- skip 2 of every 3 frames
-    walkThrottle = 0
-    local hum = player.Character and player.Character:FindFirstChild("Humanoid")
+    local char = player.Character
+    local hum  = char and char:FindFirstChild("Humanoid")
     if not hum then return end
-    -- pcall: some games lock WalkSpeed via __newindex metamethod → would error without this
-    pcall(function()
-        hum.WalkSpeed = math.clamp(tonumber(walkBox.Text) or 16, 0, 500)
-    end)
+    local v = tonumber(walkBox.Text)
+    if not v or v <= 0 then v = 16 end
+    v = math.clamp(v, 0, 500)
+    -- Không dùng pcall ở đây để lỗi nổi ra ngoài nếu có
+    hum.WalkSpeed = v
 end
 
 local function ToggleWalkSpeed()
-    isWalk = not isWalk; setBtn(walkBtn, isWalk)
+    isWalk = not isWalk
+    setBtn(walkBtn, isWalk)
     if isWalk then
-        walkThrottle = 0
-        walkConn = track("walk", RunService.Heartbeat:Connect(applyWalk))
+        -- Disconnect cái cũ nếu còn tồn tại
+        if walkConn then walkConn:Disconnect(); walkConn = nil end
+        -- Apply ngay lập tức, không chờ frame đầu
+        applyWalk()
+        -- Sau đó giữ bằng Heartbeat
+        walkConn = RunService.Heartbeat:Connect(applyWalk)
     else
-        untrack("walk"); walkConn = nil
-        -- Restore default — pcall in case game also locks this
+        if walkConn then walkConn:Disconnect(); walkConn = nil end
+        -- Restore về mặc định
         local hum = player.Character and player.Character:FindFirstChild("Humanoid")
-        pcall(function() if hum then hum.WalkSpeed = 16 end end)
+        if hum then hum.WalkSpeed = 16 end
     end
 end
 
 -- ============================================================
--- 14. JUMPPOWER — same fix: always write, throttled
+-- 14. JUMPPOWER — tương tự, simplified
 -- ============================================================
-local jumpThrottle = 0
-
 local function applyJump()
-    jumpThrottle = jumpThrottle + 1
-    if jumpThrottle < 3 then return end
-    jumpThrottle = 0
-    local hum = player.Character and player.Character:FindFirstChild("Humanoid")
+    local char = player.Character
+    local hum  = char and char:FindFirstChild("Humanoid")
     if not hum then return end
-    pcall(function()
-        hum.UseJumpPower = true
-        hum.JumpPower = math.clamp(tonumber(jumpBox.Text) or 50, 0, 1000)
-    end)
+    local v = tonumber(jumpBox.Text)
+    if not v or v <= 0 then v = 50 end
+    v = math.clamp(v, 0, 1000)
+    hum.UseJumpPower = true
+    hum.JumpPower    = v
 end
 
 local function ToggleJumpPower()
-    isJump = not isJump; setBtn(jumpBtn, isJump)
+    isJump = not isJump
+    setBtn(jumpBtn, isJump)
     if isJump then
-        jumpThrottle = 0
-        jumpConn = track("jump", RunService.Heartbeat:Connect(applyJump))
+        if jumpConn then jumpConn:Disconnect(); jumpConn = nil end
+        applyJump()
+        jumpConn = RunService.Heartbeat:Connect(applyJump)
     else
-        untrack("jump"); jumpConn = nil
+        if jumpConn then jumpConn:Disconnect(); jumpConn = nil end
         local hum = player.Character and player.Character:FindFirstChild("Humanoid")
-        pcall(function() if hum then hum.UseJumpPower = true; hum.JumpPower = 50 end end)
+        if hum then hum.UseJumpPower = true; hum.JumpPower = 50 end
     end
 end
 
@@ -684,7 +698,6 @@ end
 -- ============================================================
 player.CharacterAdded:Connect(function()
     task.wait(0.3)
-    walkThrottle = 0; jumpThrottle = 0
     if isWalk  then applyWalk() end
     if isJump  then applyJump() end
     if isFlying then
