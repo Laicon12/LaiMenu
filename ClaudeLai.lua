@@ -329,8 +329,7 @@ local isFlying, isWalk, isJump, isInfJump, isNoclip, isESP =
 local flyAttach, flyLV
 local flyConn, walkConn, jumpConn, infJumpConn, noclipConn
 
--- Cached walk/jump values to avoid redundant sets
-local lastWalkVal, lastJumpVal = -1, -1
+-- Cached walk/jump values removed — see WalkSpeed section for why
 
 local function setBtn(btn, on)
     btn.BackgroundColor3 = on and T.AccentON or T.ElemBG
@@ -468,47 +467,66 @@ local function ToggleFly()
 end
 
 -- ============================================================
--- 13. WALKSPEED  — only writes when value changes
+-- 13. WALKSPEED
+-- WHY REMOVED "only write on change": many games reset WalkSpeed
+-- every frame server-side. If the game resets to 16 but lastWalkVal
+-- is still 50, our check says "no change needed" and skips the write
+-- → the game's value wins. Fix: always write, but throttle to every
+-- 3 Heartbeat frames so we don't hammer the property pointlessly.
 -- ============================================================
+local walkThrottle = 0
+
 local function applyWalk()
+    walkThrottle = walkThrottle + 1
+    if walkThrottle < 3 then return end  -- skip 2 of every 3 frames
+    walkThrottle = 0
     local hum = player.Character and player.Character:FindFirstChild("Humanoid")
     if not hum then return end
-    local v = math.clamp(tonumber(walkBox.Text) or 16, 0, 500)
-    if v ~= lastWalkVal then hum.WalkSpeed = v; lastWalkVal = v end
+    -- pcall: some games lock WalkSpeed via __newindex metamethod → would error without this
+    pcall(function()
+        hum.WalkSpeed = math.clamp(tonumber(walkBox.Text) or 16, 0, 500)
+    end)
 end
 
 local function ToggleWalkSpeed()
     isWalk = not isWalk; setBtn(walkBtn, isWalk)
     if isWalk then
-        lastWalkVal = -1  -- force write on first frame
-        -- FIX #6: track() so Panic can disconnect by label
+        walkThrottle = 0
         walkConn = track("walk", RunService.Heartbeat:Connect(applyWalk))
     else
         untrack("walk"); walkConn = nil
+        -- Restore default — pcall in case game also locks this
         local hum = player.Character and player.Character:FindFirstChild("Humanoid")
-        if hum then hum.WalkSpeed = 16 end; lastWalkVal = -1
+        pcall(function() if hum then hum.WalkSpeed = 16 end end)
     end
 end
 
 -- ============================================================
--- 14. JUMPPOWER  — only writes when value changes
+-- 14. JUMPPOWER — same fix: always write, throttled
 -- ============================================================
+local jumpThrottle = 0
+
 local function applyJump()
+    jumpThrottle = jumpThrottle + 1
+    if jumpThrottle < 3 then return end
+    jumpThrottle = 0
     local hum = player.Character and player.Character:FindFirstChild("Humanoid")
     if not hum then return end
-    local v = math.clamp(tonumber(jumpBox.Text) or 50, 0, 1000)
-    if v ~= lastJumpVal then hum.UseJumpPower = true; hum.JumpPower = v; lastJumpVal = v end
+    pcall(function()
+        hum.UseJumpPower = true
+        hum.JumpPower = math.clamp(tonumber(jumpBox.Text) or 50, 0, 1000)
+    end)
 end
 
 local function ToggleJumpPower()
     isJump = not isJump; setBtn(jumpBtn, isJump)
     if isJump then
-        lastJumpVal = -1
+        jumpThrottle = 0
         jumpConn = track("jump", RunService.Heartbeat:Connect(applyJump))
     else
         untrack("jump"); jumpConn = nil
         local hum = player.Character and player.Character:FindFirstChild("Humanoid")
-        if hum then hum.UseJumpPower = true; hum.JumpPower = 50 end; lastJumpVal = -1
+        pcall(function() if hum then hum.UseJumpPower = true; hum.JumpPower = 50 end end)
     end
 end
 
@@ -666,7 +684,7 @@ end
 -- ============================================================
 player.CharacterAdded:Connect(function()
     task.wait(0.3)
-    lastWalkVal = -1; lastJumpVal = -1
+    walkThrottle = 0; jumpThrottle = 0
     if isWalk  then applyWalk() end
     if isJump  then applyJump() end
     if isFlying then
