@@ -549,7 +549,7 @@ flyModeBtn.MouseButton1Click:Connect(function()
     flyModeBtn.Text = currentFlyMode == "Camera" and "Fly Mode: Camera" or "Fly Mode: Hover (Space/Ctrl)"
 end)
 
-local flyPlatform = nil
+local flyPlatform = nil  -- kept for StopFly cleanup safety
 
 local function StopFly()
     if flyConn then flyConn:Disconnect(); flyConn = nil end
@@ -557,6 +557,14 @@ local function StopFly()
     flyAttach, flyLV = nil, nil
     if flyPlatform and flyPlatform.Parent then
         flyPlatform:Destroy(); flyPlatform = nil
+    end
+    local char = player.Character
+    if char then
+        for _,p in ipairs(char:GetDescendants()) do
+            if p:IsA("BasePart") then
+                pcall(function() p.CollisionGroup = "Default" end)
+            end
+        end
     end
     local hum = player.Character and player.Character:FindFirstChild("Humanoid")
     if hum then pcall(function() hum:ChangeState(Enum.HumanoidStateType.GettingUp) end) end
@@ -573,18 +581,6 @@ local function ToggleFly()
     if not isFlying then StopFly(); return end
 
     hum:ChangeState(Enum.HumanoidStateType.Physics)
-
-    -- Invisible platform — CanCollide true để server detect contact
-    flyPlatform = stealth(Instance.new("Part"))
-    flyPlatform.Name        = randName(6)
-    flyPlatform.Size        = Vector3.new(4, 0.2, 4)
-    flyPlatform.Transparency = 1
-    flyPlatform.CanCollide  = true   -- QUAN TRỌNG: phải true
-    flyPlatform.Anchored    = true   -- anchor để không bị physics kéo
-    flyPlatform.CanTouch    = false
-    flyPlatform.CastShadow  = false
-    flyPlatform.Massless    = true
-    flyPlatform.Parent      = workspace
 
     flyAttach = stealth(Instance.new("Attachment"))
     flyAttach.Name = randName(6); flyAttach.Parent = hrp
@@ -606,11 +602,6 @@ local function ToggleFly()
             end
 
             hm:ChangeState(Enum.HumanoidStateType.Physics)
-
-            -- Cập nhật vị trí platform ngay dưới chân
-            if flyPlatform and flyPlatform.Parent then
-                flyPlatform.CFrame = CFrame.new(h2.Position - Vector3.new(0, 2.8, 0))
-            end
 
             local dir = Vector3.zero
             if currentFlyMode == "Camera" then
