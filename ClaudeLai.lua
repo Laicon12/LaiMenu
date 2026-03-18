@@ -371,14 +371,16 @@ end)
 refreshPlayerList(); tpRefresh()
 
 mkLabel(cTroll, "─── Freeze ──────────────────", 5)
-local freezeBtn = mkBtn(cTroll, "🧊 Freeze Player",          Color3.fromRGB(30,90,160),  6)
-local unfrzBtn  = mkBtn(cTroll, "🔥 Unfreeze Player",        Color3.fromRGB(160,70,20),  7)
+local freezeBtn    = mkBtn(cTroll, "🧊 Freeze Player",          Color3.fromRGB(30,90,160),  6)
+local unfrzBtn     = mkBtn(cTroll, "🔥 Unfreeze Player",        Color3.fromRGB(160,70,20),  7)
 mkLabel(cTroll, "─── Fling ───────────────────", 8)
-local flingBtn  = mkBtn(cTroll, "💥 Fling Player",           Color3.fromRGB(180,30,50),  9)
-mkLabel(cTroll, "─── Spin ────────────────────", 10)
-local spinBtn   = mkBtn(cTroll, "🌀 Spin Player (Toggle)",   Color3.fromRGB(100,20,140), 11)
-mkLabel(cTroll, "─── Follow ──────────────────", 12)
-local followBtn = mkBtn(cTroll, "👁 Follow Player (Toggle)",  Color3.fromRGB(20,120,80),  13)
+local flingBtn     = mkBtn(cTroll, "💥 Fling Player",           Color3.fromRGB(180,30,50),  9)
+mkLabel(cTroll, "─── Touch Fling ─────────────", 10)
+local touchFlingBtn = mkBtn(cTroll, "👆 Touch Fling (Toggle)",  Color3.fromRGB(160,50,10),  11)
+mkLabel(cTroll, "─── Spin ────────────────────", 12)
+local spinBtn      = mkBtn(cTroll, "🌀 Spin Player (Toggle)",   Color3.fromRGB(100,20,140), 13)
+mkLabel(cTroll, "─── Follow ──────────────────", 14)
+local followBtn    = mkBtn(cTroll, "👁 Follow Player (Toggle)",  Color3.fromRGB(20,120,80),  15)
 
 -- ============================================================
 -- 8. TAB SWITCHING
@@ -734,10 +736,36 @@ local function addESP(p)
     for _,h in ipairs(espFolder:GetChildren()) do
         if h:IsA("Highlight") and h.Adornee == char then return end
     end
+
+    -- Highlight
     local hl = stealth(Instance.new("Highlight", espFolder))
     hl.Name = randName(6); hl.Adornee = char
     hl.FillColor = Color3.fromRGB(0,170,255); hl.OutlineColor = Color3.new(1,1,1)
     hl.FillTransparency = 0.5
+
+    -- BillboardGui hiện tên trên đầu
+    local head = char:FindFirstChild("Head")
+    if head then
+        local bb = stealth(Instance.new("BillboardGui"))
+        bb.Name        = randName(6)
+        bb.Adornee     = head
+        bb.Size        = UDim2.new(0, 100, 0, 30)
+        bb.StudsOffset = Vector3.new(0, 2.5, 0)  -- cao hơn đầu một chút
+        bb.AlwaysOnTop = true                     -- hiện qua tường
+        bb.ResetOnSpawn = false
+        bb.Parent      = espFolder
+
+        local lbl = Instance.new("TextLabel", bb)
+        lbl.Size               = UDim2.new(1, 0, 1, 0)
+        lbl.BackgroundTransparency = 1
+        lbl.Text               = p.DisplayName  -- tên hiển thị
+        lbl.TextColor3         = Color3.fromRGB(0, 200, 255)
+        lbl.TextStrokeColor3   = Color3.new(0, 0, 0)
+        lbl.TextStrokeTransparency = 0          -- viền đen cho dễ đọc
+        lbl.Font               = Enum.Font.GothamBold
+        lbl.TextSize           = 14
+        lbl.TextScaled         = false
+    end
 end
 
 local function removeESP(p)
@@ -990,6 +1018,55 @@ flingBtn.MouseButton1Click:Connect(function()
     end)
 end)
 
+-- ============================================================
+-- TOUCH FLING — Velocity multiplier method
+-- Không cần chọn target — ai đứng gần đều bị fling.
+-- Nhân velocity 10000x trong đúng 1 render frame → momentum
+-- transfer sang người đứng cạnh → họ bay.
+-- Mình không bị bay vì velocity reset ngay frame sau.
+-- ============================================================
+local isTouchFling = false
+local touchFlingConn = nil
+
+local function startTouchFling()
+    local movel = 0.1
+    touchFlingConn = track("touchFling", RunService.Heartbeat:Connect(function()
+        local c   = player.Character
+        local hrp = c and c:FindFirstChild("HumanoidRootPart")
+        if not hrp then return end
+
+        local vel = hrp.Velocity
+
+        -- Frame 1: nhân velocity lên 10000x + upward kick
+        hrp.Velocity = vel * 10000 + Vector3.new(0, 10000, 0)
+        RunService.RenderStepped:Wait()
+
+        -- Frame 2: reset về velocity cũ — mình không bay
+        hrp.Velocity = vel
+        RunService.Stepped:Wait()
+
+        -- Frame 3: oscillate nhỏ để tạo liên tục micro-collision
+        hrp.Velocity = vel + Vector3.new(0, movel, 0)
+        movel = -movel  -- đổi chiều mỗi cycle
+    end))
+end
+
+touchFlingBtn.MouseButton1Click:Connect(function()
+    isTouchFling = not isTouchFling
+    if isTouchFling then
+        touchFlingBtn.BackgroundColor3 = T.Troll
+        touchFlingBtn.TextColor3       = Color3.fromRGB(20,20,20)
+        touchFlingBtn.Text = "👆 Touch Fling: ON"
+        startTouchFling()
+    else
+        untrack("touchFling"); touchFlingConn = nil
+        touchFlingBtn.BackgroundColor3 = Color3.fromRGB(160,50,10)
+        touchFlingBtn.TextColor3       = T.TextMain
+        touchFlingBtn.Text = "👆 Touch Fling (Toggle)"
+    end
+end)
+
+-- ============================================================
 -- SPIN — RunService.Stepped, FIX #6: track()
 local isSpinning, spinTarget = false, nil
 
@@ -1118,6 +1195,14 @@ local function Panic()
     isFollowing = false; followTarget = nil
     followBtn.BackgroundColor3 = Color3.fromRGB(20,120,80)
     followBtn.Text = "👁 Follow Player (Toggle)"
+    -- Touch fling
+    if isTouchFling then
+        isTouchFling = false
+        untrack("touchFling"); touchFlingConn = nil
+        touchFlingBtn.BackgroundColor3 = Color3.fromRGB(160,50,10)
+        touchFlingBtn.TextColor3       = T.TextMain
+        touchFlingBtn.Text = "👆 Touch Fling (Toggle)"
+    end
 
     -- Flash title red briefly as visual confirmation
     pcall(function()
