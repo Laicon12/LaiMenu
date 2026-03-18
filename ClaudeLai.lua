@@ -1,20 +1,3 @@
---[[
-    LAI ADMIN — Final Edition
-    All fixes applied:
-      • Fly: LinearVelocity only, direct CFrame orientation lock (no AlignOrientation spin bug)
-      • Fling: ghost method — save pos → TP to target → blast → TP back instantly (user never flies away)
-      • Freeze: Heartbeat CFrame lock loop (works within LocalScript network ownership)
-      • Noclip: safe restore — only re-enables collision after confirming char is clear
-      • WalkSpeed: only writes when value actually changes (no wasteful every-frame set)
-      • Fly respawn: StopFly() fully awaited before restart to prevent double-constraint
-      • ESP: event-driven (PlayerAdded/Removing) instead of polling loop
-      • Spin: moved to RunService.Stepped (after physics) to prevent jitter
-      • randName: seeded with tick()+os.clock() for true randomness
-      • All instances: Archivable = false (won't show in serialize scans)
-      • ESP folder: parented to camera instead of Workspace
-      • GUI: CoreGui parent, random name, hidden on start
-]]
-
 local Players          = game:GetService("Players")
 local RunService       = game:GetService("RunService")
 local UserInputService = game:GetService("UserInputService")
