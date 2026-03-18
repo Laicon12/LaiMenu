@@ -1,3 +1,20 @@
+--[[
+    LAI ADMIN — Final Edition
+    All fixes applied:
+      • Fly: LinearVelocity only, direct CFrame orientation lock (no AlignOrientation spin bug)
+      • Fling: ghost method — save pos → TP to target → blast → TP back instantly (user never flies away)
+      • Freeze: Heartbeat CFrame lock loop (works within LocalScript network ownership)
+      • Noclip: safe restore — only re-enables collision after confirming char is clear
+      • WalkSpeed: only writes when value actually changes (no wasteful every-frame set)
+      • Fly respawn: StopFly() fully awaited before restart to prevent double-constraint
+      • ESP: event-driven (PlayerAdded/Removing) instead of polling loop
+      • Spin: moved to RunService.Stepped (after physics) to prevent jitter
+      • randName: seeded with tick()+os.clock() for true randomness
+      • All instances: Archivable = false (won't show in serialize scans)
+      • ESP folder: parented to camera instead of Workspace
+      • GUI: CoreGui parent, random name, hidden on start
+]]
+
 local Players          = game:GetService("Players")
 local RunService       = game:GetService("RunService")
 local UserInputService = game:GetService("UserInputService")
@@ -66,13 +83,15 @@ end
 -- 1. KEYBINDS
 -- ============================================================
 local keybinds = {
-    Menu      = Enum.KeyCode.F1,
-    Fly       = Enum.KeyCode.E,
-    WalkSpeed = Enum.KeyCode.R,
-    JumpPower = Enum.KeyCode.J,
-    InfJump   = Enum.KeyCode.K,
-    ESP       = Enum.KeyCode.V,
-    Noclip    = Enum.KeyCode.N,
+    Menu       = Enum.KeyCode.F1,
+    Fly        = Enum.KeyCode.C,        -- mặc định C
+    WalkSpeed  = Enum.KeyCode.V,        -- mặc định V
+    SelfFreeze = Enum.KeyCode.B,        -- mặc định B
+    JumpPower  = Enum.KeyCode.Unknown,  -- không set mặc định
+    InfJump    = Enum.KeyCode.Unknown,
+    ESP        = Enum.KeyCode.Unknown,
+    Noclip     = Enum.KeyCode.Unknown,
+    Freeze     = Enum.KeyCode.Unknown,  -- freeze player, không set mặc định
 }
 local listeningForAction, listeningButton = nil, nil
 local currentFlyMode = "Camera"
@@ -200,7 +219,14 @@ local function mkRow(parent, text, action, order)
     bind.Size = UDim2.new(0.25,0,1,0); bind.Position = UDim2.new(0.75,6,0,0)
     bind.BackgroundColor3 = T.ElemHover; bind.TextColor3 = T.AccentON
     bind.Font = Enum.Font.GothamBold; bind.TextSize = 12
-    bind.Text = "["..keybinds[action].Name.."]"
+    -- Hiển thị "-" nếu chưa set keybind (Unknown)
+    local function updateBindText()
+        local kb = keybinds[action]
+        bind.Text = (kb and kb ~= Enum.KeyCode.Unknown)
+            and "["..kb.Name.."]"
+            or "[-]"
+    end
+    updateBindText()
     Instance.new("UICorner", bind).CornerRadius = UDim.new(0,6); stroke(bind)
     bind.MouseButton1Click:Connect(function()
         listeningForAction = action; listeningButton = bind; bind.Text = "..."
@@ -268,10 +294,10 @@ local jumpBtn     = mkRow(cMain, "Toggle JumpPower", "JumpPower", 8)
 local jumpBox     = mkInput(cMain, "Jump Power (Def: 50)", 9); jumpBox.Text = "50"
 mkPresets(cMain, "Power:", {50, 100, 250}, jumpBox, 10)
 
-local infJumpBtn  = mkRow(cMain, "Infinite Jump",    "InfJump", 11)
-local noclipBtn   = mkRow(cMain, "Toggle Noclip",    "Noclip",  12)
-local espBtn      = mkRow(cMain, "Toggle ESP",       "ESP",     13)
-local selfFrzBtn  = mkBtn(cMain, "🧊 Freeze Self",   T.ElemBG,  14)
+local infJumpBtn  = mkRow(cMain, "Infinite Jump",    "InfJump",    11)
+local noclipBtn   = mkRow(cMain, "Toggle Noclip",    "Noclip",     12)
+local espBtn      = mkRow(cMain, "Toggle ESP",       "ESP",        13)
+local selfFrzBtn  = mkRow(cMain, "🧊 Freeze Self",   "SelfFreeze", 14)
 
 -- ============================================================
 -- SHARED: Player list factory — dùng cho cả TP và Troll tab
@@ -372,8 +398,8 @@ end)
 refreshPlayerList(); tpRefresh()
 
 mkLabel(cTroll, "─── Freeze ──────────────────", 5)
-local freezeBtn    = mkBtn(cTroll, "🧊 Freeze Player",          Color3.fromRGB(30,90,160),  6)
-local unfrzBtn     = mkBtn(cTroll, "🔥 Unfreeze Player",        Color3.fromRGB(160,70,20),  7)
+local freezeBtn    = mkRow(cTroll, "🧊 Freeze Player",  "Freeze",            6)
+local unfrzBtn     = mkBtn(cTroll, "🔥 Unfreeze Player", Color3.fromRGB(160,70,20), 7)
 mkLabel(cTroll, "─── Fling ───────────────────", 8)
 local flingBtn     = mkBtn(cTroll, "💥 Fling Player",           Color3.fromRGB(180,30,50),  9)
 mkLabel(cTroll, "─── Touch Fling ─────────────", 10)
@@ -1846,8 +1872,9 @@ track("input", UserInputService.InputBegan:Connect(function(input, gp)
     if listeningForAction then
         if input.UserInputType ~= Enum.UserInputType.Keyboard then return end
         if input.KeyCode == Enum.KeyCode.Escape then
-            local prev = keybinds[listeningForAction]
-            if prev then listeningButton.Text = "["..prev.Name.."]" end
+            -- Esc = bỏ trống keybind
+            keybinds[listeningForAction] = Enum.KeyCode.Unknown
+            listeningButton.Text = "[-]"
         elseif input.KeyCode ~= Enum.KeyCode.Unknown then
             keybinds[listeningForAction] = input.KeyCode
             listeningButton.Text = "["..input.KeyCode.Name.."]"
@@ -1857,20 +1884,51 @@ track("input", UserInputService.InputBegan:Connect(function(input, gp)
     end
     if gp then return end
 
-    -- FIX #7: RightShift = Panic (emergency stop all features)
     if input.KeyCode == Enum.KeyCode.RightShift then
         Panic(); return
     end
 
-    if     input.KeyCode == keybinds.Menu      then
+    if input.KeyCode == keybinds.Menu then
         isMenuOpen = not isMenuOpen
         TweenService:Create(main, TweenInfo.new(0.4, Enum.EasingStyle.Quart, Enum.EasingDirection.Out),
             {Position = isMenuOpen and openPos or closedPos}):Play()
-    elseif input.KeyCode == keybinds.Fly       then ToggleFly()
-    elseif input.KeyCode == keybinds.WalkSpeed  then ToggleWalkSpeed()
-    elseif input.KeyCode == keybinds.JumpPower  then ToggleJumpPower()
-    elseif input.KeyCode == keybinds.InfJump    then ToggleInfJump()
-    elseif input.KeyCode == keybinds.Noclip     then ToggleNoclip()
-    elseif input.KeyCode == keybinds.ESP        then ToggleESP()
+    end
+
+    -- Chỉ trigger nếu keybind đã được set (không phải Unknown)
+    local function tryBind(key, fn)
+        if key ~= Enum.KeyCode.Unknown and input.KeyCode == key then fn() end
+    end
+
+    tryBind(keybinds.Fly,        ToggleFly)
+    tryBind(keybinds.WalkSpeed,  ToggleWalkSpeed)
+    tryBind(keybinds.JumpPower,  ToggleJumpPower)
+    tryBind(keybinds.InfJump,    ToggleInfJump)
+    tryBind(keybinds.Noclip,     ToggleNoclip)
+    tryBind(keybinds.ESP,        ToggleESP)
+    tryBind(keybinds.SelfFreeze, ToggleSelfFreeze)
+    -- Freeze player keybind
+    if keybinds.Freeze ~= Enum.KeyCode.Unknown and input.KeyCode == keybinds.Freeze then
+        freezeBtn:FindFirstChildOfClass("TextButton") -- trigger freeze button click
+        local t = FindPlayer(trollBox.Text)
+        if t and t.Character and t.Character:FindFirstChild("HumanoidRootPart") then
+            if freezeConn then
+                -- đang freeze → unfreeze
+                untrack("freeze"); freezeConn = nil
+                frozenTarget = nil; frozenCF = nil
+                freezeBtn.Text = "🧊 Freeze Player"
+            else
+                -- chưa freeze → freeze
+                frozenTarget = t
+                frozenCF     = t.Character.HumanoidRootPart.CFrame
+                freezeConn = track("freeze", RunService.Heartbeat:Connect(function()
+                    if not frozenTarget or not frozenTarget.Character then
+                        untrack("freeze"); freezeConn = nil; return
+                    end
+                    local hrp = frozenTarget.Character:FindFirstChild("HumanoidRootPart")
+                    if hrp then hrp.CFrame = frozenCF end
+                end))
+                freezeBtn.Text = "🧊 Frozen: " .. t.Name
+            end
+        end
     end
 end))
