@@ -80,21 +80,38 @@ local listeningForAction, listeningButton = nil, nil
 local currentFlyMode = "Camera"
 
 -- ============================================================
--- 2. THEME
+-- 2. THEME — Dark glass minimal
+-- Palette: near-black base, cold blue accent, subtle borders
 -- ============================================================
 local T = {
-    MainBG      = Color3.fromRGB(15,  15,  20),
-    ElemBG      = Color3.fromRGB(30,  30,  40),
-    ElemHover   = Color3.fromRGB(45,  45,  55),
-    AccentON    = Color3.fromRGB(0,   170, 255),
-    TextMain    = Color3.fromRGB(255, 255, 255),
-    TextSub     = Color3.fromRGB(180, 180, 200),
-    Border      = Color3.fromRGB(45,  45,  60),
-    Troll       = Color3.fromRGB(255, 60,  80),
+    -- Backgrounds
+    MainBG      = Color3.fromRGB(10,  11,  15),   -- near black
+    ElemBG      = Color3.fromRGB(20,  21,  28),   -- dark element
+    ElemHover   = Color3.fromRGB(28,  30,  40),   -- hover state
+    ElemActive  = Color3.fromRGB(18,  40,  65),   -- active/pressed
+
+    -- Accent
+    AccentON    = Color3.fromRGB(80,  180, 255),  -- cold blue
+    AccentDim   = Color3.fromRGB(40,  90,  140),  -- dim accent
+    AccentLine  = Color3.fromRGB(50,  130, 210),  -- accent border
+
+    -- Text
+    TextMain    = Color3.fromRGB(240, 242, 248),  -- near white
+    TextSub     = Color3.fromRGB(120, 128, 155),  -- muted
+    TextDim     = Color3.fromRGB(70,  75,  100),  -- very muted
+
+    -- Borders
+    Border      = Color3.fromRGB(30,  32,  45),   -- subtle
+    BorderBright= Color3.fromRGB(50,  55,  75),   -- visible
+
+    -- Semantic
+    Troll       = Color3.fromRGB(255, 65,  85),
+    Success     = Color3.fromRGB(60,  200, 120),
+    Warn        = Color3.fromRGB(255, 180, 50),
 }
 
 -- ============================================================
--- 3. GUI  (CoreGui parent, random name, hidden on start)
+-- 3. GUI — Dark glass, draggable, hidden on start
 -- ============================================================
 local gui = stealth(Instance.new("ScreenGui"))
 gui.Name           = randName(10)
@@ -103,76 +120,201 @@ gui.IgnoreGuiInset = true
 pcall(function() gui.Parent = CoreGui end)
 if not gui.Parent then gui.Parent = player:WaitForChild("PlayerGui") end
 
-local main = stealth(Instance.new("Frame"))
-main.Size                  = UDim2.new(0, 280, 0, 500)
-main.Position              = UDim2.new(0, -320, 0.5, -250)  -- off-screen
-main.BackgroundColor3      = T.MainBG
-main.BackgroundTransparency = 0.05
-main.BorderSizePixel       = 0
-main.Parent                = gui
+-- Shadow layer (fake drop shadow)
+local shadow = stealth(Instance.new("Frame", gui))
+shadow.Size = UDim2.new(0, 292, 0, 512)
+shadow.Position = UDim2.new(0, -326, 0.5, -253)
+shadow.BackgroundColor3 = Color3.fromRGB(0, 0, 0)
+shadow.BackgroundTransparency = 0.55
+shadow.BorderSizePixel = 0
+Instance.new("UICorner", shadow).CornerRadius = UDim.new(0, 14)
+
+local main = stealth(Instance.new("Frame", gui))
+main.Size                   = UDim2.new(0, 280, 0, 500)
+main.Position               = UDim2.new(0, -320, 0.5, -250)
+main.BackgroundColor3       = T.MainBG
+main.BackgroundTransparency = 0.08  -- slight glass transparency
+main.BorderSizePixel        = 0
 Instance.new("UICorner", main).CornerRadius = UDim.new(0, 12)
-local ms = Instance.new("UIStroke", main); ms.Color = T.Border; ms.Thickness = 1.5
 
--- Title bar
-local titleF = stealth(Instance.new("Frame"))
-titleF.Size = UDim2.new(1,0,0,40); titleF.BackgroundColor3 = Color3.new(1,1,1)
-titleF.BorderSizePixel = 0; titleF.Parent = main
-Instance.new("UICorner", titleF).CornerRadius = UDim.new(0,12)
-local tg = Instance.new("UIGradient", titleF)
-tg.Color = ColorSequence.new({ColorSequenceKeypoint.new(0, Color3.fromRGB(20,30,50)), ColorSequenceKeypoint.new(1, Color3.fromRGB(10,15,25))})
-local tbc = stealth(Instance.new("Frame", titleF))
-tbc.Size = UDim2.new(1,0,0,10); tbc.Position = UDim2.new(0,0,1,-10)
-tbc.BackgroundColor3 = Color3.fromRGB(10,15,25); tbc.BorderSizePixel = 0
+-- Outer border — thin cold blue tint
+local outerStroke = Instance.new("UIStroke", main)
+outerStroke.Color     = T.Border
+outerStroke.Thickness = 1
+outerStroke.Transparency = 0
 
-local titleLbl = stealth(Instance.new("TextLabel", titleF))
-titleLbl.Size = UDim2.new(0.7,0,1,0); titleLbl.Position = UDim2.new(0.05,0,0,0)
-titleLbl.BackgroundTransparency = 1; titleLbl.Text = "LAI ADMIN"
-titleLbl.TextColor3 = T.TextMain; titleLbl.Font = Enum.Font.GothamBlack
-titleLbl.TextSize = 16; titleLbl.TextXAlignment = Enum.TextXAlignment.Left
-
-local menuBindBtn = stealth(Instance.new("TextButton", titleF))
-menuBindBtn.Size = UDim2.new(0.2,0,0.6,0); menuBindBtn.Position = UDim2.new(0.75,0,0.2,0)
-menuBindBtn.BackgroundColor3 = T.ElemHover; menuBindBtn.TextColor3 = T.AccentON
-menuBindBtn.Font = Enum.Font.GothamBold; menuBindBtn.TextSize = 12
-menuBindBtn.Text = "["..keybinds.Menu.Name.."]"
-Instance.new("UICorner", menuBindBtn).CornerRadius = UDim.new(0,6)
+-- Top accent line — 1px cold blue bar at very top
+local accentBar = stealth(Instance.new("Frame", main))
+accentBar.Size = UDim2.new(1, -24, 0, 1)
+accentBar.Position = UDim2.new(0, 12, 0, 0)
+accentBar.BackgroundColor3 = T.AccentLine
+accentBar.BackgroundTransparency = 0.3
+accentBar.BorderSizePixel = 0
 
 -- ============================================================
--- 4. TAB BAR
+-- TITLE BAR — clean, minimal, draggable
+-- ============================================================
+local titleF = stealth(Instance.new("Frame", main))
+titleF.Size             = UDim2.new(1, 0, 0, 44)
+titleF.BackgroundColor3 = T.MainBG
+titleF.BackgroundTransparency = 1
+titleF.BorderSizePixel  = 0
+
+-- Title dot indicator
+local titleDot = stealth(Instance.new("Frame", titleF))
+titleDot.Size = UDim2.new(0, 6, 0, 6)
+titleDot.Position = UDim2.new(0, 14, 0.5, -3)
+titleDot.BackgroundColor3 = T.AccentON
+titleDot.BorderSizePixel = 0
+Instance.new("UICorner", titleDot).CornerRadius = UDim.new(1, 0)
+
+-- Title text
+local titleLbl = stealth(Instance.new("TextLabel", titleF))
+titleLbl.Size = UDim2.new(0, 140, 1, 0)
+titleLbl.Position = UDim2.new(0, 26, 0, 0)
+titleLbl.BackgroundTransparency = 1
+titleLbl.Text = "LAI ADMIN"
+titleLbl.TextColor3 = T.TextMain
+titleLbl.Font = Enum.Font.GothamBlack
+titleLbl.TextSize = 13
+titleLbl.TextXAlignment = Enum.TextXAlignment.Left
+titleLbl.TextTransparency = 0
+
+-- Subtitle
+local titleSub = stealth(Instance.new("TextLabel", titleF))
+titleSub.Size = UDim2.new(0, 100, 1, 0)
+titleSub.Position = UDim2.new(0, 112, 0, 0)
+titleSub.BackgroundTransparency = 1
+titleSub.Text = "v2.0"
+titleSub.TextColor3 = T.TextDim
+titleSub.Font = Enum.Font.Gotham
+titleSub.TextSize = 11
+titleSub.TextXAlignment = Enum.TextXAlignment.Left
+
+-- Menu keybind button — right side
+local menuBindBtn = stealth(Instance.new("TextButton", titleF))
+menuBindBtn.Size = UDim2.new(0, 44, 0, 22)
+menuBindBtn.Position = UDim2.new(1, -54, 0.5, -11)
+menuBindBtn.BackgroundColor3 = T.ElemBG
+menuBindBtn.TextColor3 = T.AccentON
+menuBindBtn.Font = Enum.Font.GothamBold
+menuBindBtn.TextSize = 10
+menuBindBtn.Text = keybinds.Menu.Name
+menuBindBtn.BorderSizePixel = 0
+Instance.new("UICorner", menuBindBtn).CornerRadius = UDim.new(0, 4)
+local mbStroke = Instance.new("UIStroke", menuBindBtn)
+mbStroke.Color = T.AccentDim; mbStroke.Thickness = 1
+
+-- Separator line under title
+local titleSep = stealth(Instance.new("Frame", main))
+titleSep.Size = UDim2.new(1, -20, 0, 1)
+titleSep.Position = UDim2.new(0, 10, 0, 44)
+titleSep.BackgroundColor3 = T.Border
+titleSep.BorderSizePixel = 0
+
+-- ============================================================
+-- DRAG SYSTEM — drag anywhere on title bar
+-- ============================================================
+local dragging, dragStart, startPos = false, nil, nil
+
+titleF.InputBegan:Connect(function(input)
+    if input.UserInputType == Enum.UserInputType.MouseButton1 then
+        dragging  = true
+        dragStart = input.Position
+        startPos  = main.Position
+        -- Move shadow with main
+    end
+end)
+
+UserInputService.InputChanged:Connect(function(input)
+    if dragging and input.UserInputType == Enum.UserInputType.MouseMovement then
+        local delta = input.Position - dragStart
+        local newPos = UDim2.new(
+            startPos.X.Scale,
+            startPos.X.Offset + delta.X,
+            startPos.Y.Scale,
+            startPos.Y.Offset + delta.Y
+        )
+        main.Position = newPos
+        -- Keep shadow in sync
+        shadow.Position = UDim2.new(
+            newPos.X.Scale,
+            newPos.X.Offset - 6,
+            newPos.Y.Scale,
+            newPos.Y.Offset - 3
+        )
+    end
+end)
+
+UserInputService.InputEnded:Connect(function(input)
+    if input.UserInputType == Enum.UserInputType.MouseButton1 then
+        dragging = false
+    end
+end)
+
+-- ============================================================
+-- 4. TAB BAR — pill-style underline tabs
 -- ============================================================
 local tabBar = stealth(Instance.new("Frame", main))
-tabBar.Size = UDim2.new(1,0,0,35); tabBar.Position = UDim2.new(0,0,0,40)
-tabBar.BackgroundColor3 = T.MainBG; tabBar.BorderSizePixel = 0
+tabBar.Size = UDim2.new(1, 0, 0, 34)
+tabBar.Position = UDim2.new(0, 0, 0, 46)
+tabBar.BackgroundTransparency = 1
+tabBar.BorderSizePixel = 0
+
+-- Tab underline container
+local tabLine = stealth(Instance.new("Frame", tabBar))
+tabLine.Size = UDim2.new(1, -20, 0, 1)
+tabLine.Position = UDim2.new(0, 10, 1, -1)
+tabLine.BackgroundColor3 = T.Border
+tabLine.BorderSizePixel = 0
+
+-- Active tab underline indicator (moves between tabs)
+local tabIndicator = stealth(Instance.new("Frame", tabBar))
+tabIndicator.Size = UDim2.new(0.25, -10, 0, 2)
+tabIndicator.Position = UDim2.new(0, 5, 1, -2)
+tabIndicator.BackgroundColor3 = T.AccentON
+tabIndicator.BorderSizePixel = 0
+Instance.new("UICorner", tabIndicator).CornerRadius = UDim.new(1, 0)
 
 local function mkTab(text, x, col)
     local b = stealth(Instance.new("TextButton", tabBar))
-    b.Size = UDim2.new(0.25,0,1,0); b.Position = UDim2.new(x,0,0,0)
-    b.BackgroundColor3 = T.MainBG; b.Text = text
-    b.TextColor3 = col or T.TextSub; b.Font = Enum.Font.GothamBold
-    b.TextSize = 12; b.BorderSizePixel = 0
+    b.Size = UDim2.new(0.25, 0, 1, -2)
+    b.Position = UDim2.new(x, 0, 0, 0)
+    b.BackgroundTransparency = 1
+    b.Text = text
+    b.TextColor3 = col or T.TextSub
+    b.Font = Enum.Font.GothamSemibold
+    b.TextSize = 11
+    b.BorderSizePixel = 0
     return b
 end
-local tabMain   = mkTab("Main",      0,    T.TextMain)
-local tabTP     = mkTab("Teleport",  0.25)
-local tabEmotes = mkTab("Emotes",    0.50)
-local tabTroll  = mkTab("😈 Troll", 0.75, T.Troll)
-tabMain.BackgroundColor3 = T.ElemHover
+
+local tabMain   = mkTab("Main",     0,    T.TextMain)
+local tabTP     = mkTab("TP",       0.25)
+local tabEmotes = mkTab("Emotes",   0.50)
+local tabTroll  = mkTab("Troll",    0.75, T.Troll)
 
 -- ============================================================
 -- 5. CONTAINER FACTORY
 -- ============================================================
 local function mkContainer(visible)
     local sf = stealth(Instance.new("ScrollingFrame", main))
-    sf.Size = UDim2.new(1,0,1,-85); sf.Position = UDim2.new(0,0,0,80)
-    sf.BackgroundTransparency = 1; sf.BorderSizePixel = 0
-    sf.ScrollBarThickness = 3; sf.ScrollBarImageColor3 = T.AccentON
-    sf.Visible = visible; sf.AutomaticCanvasSize = Enum.AutomaticSize.Y
-    sf.CanvasSize = UDim2.new(0,0,0,0)
+    sf.Size = UDim2.new(1, 0, 1, -82)
+    sf.Position = UDim2.new(0, 0, 0, 82)
+    sf.BackgroundTransparency = 1
+    sf.BorderSizePixel = 0
+    sf.ScrollBarThickness = 2
+    sf.ScrollBarImageColor3 = T.AccentDim
+    sf.Visible = visible
+    sf.AutomaticCanvasSize = Enum.AutomaticSize.Y
+    sf.CanvasSize = UDim2.new(0, 0, 0, 0)
     local l = Instance.new("UIListLayout", sf)
-    l.Padding = UDim.new(0,10); l.HorizontalAlignment = Enum.HorizontalAlignment.Center
+    l.Padding = UDim.new(0, 6)
+    l.HorizontalAlignment = Enum.HorizontalAlignment.Center
     l.SortOrder = Enum.SortOrder.LayoutOrder
     local p = Instance.new("UIPadding", sf)
-    p.PaddingTop = UDim.new(0,10); p.PaddingBottom = UDim.new(0,10)
+    p.PaddingTop = UDim.new(0, 8)
+    p.PaddingBottom = UDim.new(0, 12)
     return sf
 end
 
@@ -182,82 +324,91 @@ local cEmotes = mkContainer(false)
 local cTroll  = mkContainer(false)
 
 -- ============================================================
--- 6. WIDGET HELPERS
+-- 6. WIDGET HELPERS — minimal style
 -- ============================================================
-local function stroke(obj)
-    local s = Instance.new("UIStroke", obj); s.Color = T.Border; s.Thickness = 1
+local function stroke(obj, col, thick)
+    local s = Instance.new("UIStroke", obj)
+    s.Color = col or T.Border
+    s.Thickness = thick or 1
 end
 
 local function mkRow(parent, text, action, order)
     local row = stealth(Instance.new("Frame", parent))
-    row.Size = UDim2.new(0.9,0,0,36); row.BackgroundTransparency = 1; row.LayoutOrder = order
+    row.Size = UDim2.new(0.92,0,0,30); row.BackgroundTransparency = 1; row.LayoutOrder = order
 
     local tog = stealth(Instance.new("TextButton", row))
-    tog.Size = UDim2.new(0.75,-6,1,0); tog.BackgroundColor3 = T.ElemBG
+    tog.Size = UDim2.new(1,-50,1,0); tog.BackgroundColor3 = T.ElemBG
     tog.TextColor3 = T.TextMain; tog.Font = Enum.Font.GothamSemibold
-    tog.TextSize = 13; tog.Text = text
+    tog.TextSize = 12; tog.Text = text; tog.BorderSizePixel = 0
     Instance.new("UICorner", tog).CornerRadius = UDim.new(0,6); stroke(tog)
 
     local bind = stealth(Instance.new("TextButton", row))
-    bind.Size = UDim2.new(0.25,0,1,0); bind.Position = UDim2.new(0.75,6,0,0)
-    bind.BackgroundColor3 = T.ElemHover; bind.TextColor3 = T.AccentON
-    bind.Font = Enum.Font.GothamBold; bind.TextSize = 12
-    -- Hiển thị "-" nếu chưa set keybind (Unknown)
+    bind.Size = UDim2.new(0,44,1,0); bind.Position = UDim2.new(1,-44,0,0)
+    bind.BackgroundColor3 = T.ElemBG; bind.TextColor3 = T.AccentON
+    bind.Font = Enum.Font.GothamBold; bind.TextSize = 10; bind.BorderSizePixel = 0
+    Instance.new("UICorner", bind).CornerRadius = UDim.new(0,6)
+    stroke(bind, T.AccentDim)
+
     local function updateBindText()
         local kb = keybinds[action]
-        bind.Text = (kb and kb ~= Enum.KeyCode.Unknown)
-            and "["..kb.Name.."]"
-            or "[-]"
+        bind.Text = (kb and kb ~= Enum.KeyCode.Unknown) and kb.Name or "-"
     end
     updateBindText()
-    Instance.new("UICorner", bind).CornerRadius = UDim.new(0,6); stroke(bind)
+
     bind.MouseButton1Click:Connect(function()
-        listeningForAction = action; listeningButton = bind; bind.Text = "..."
+        listeningForAction = action; listeningButton = bind
+        bind.Text = "..."; bind.TextColor3 = T.Warn
     end)
     return tog
 end
 
 local function mkInput(parent, ph, order)
     local b = stealth(Instance.new("TextBox", parent))
-    b.Size = UDim2.new(0.9,0,0,32); b.BackgroundColor3 = T.ElemBG
-    b.TextColor3 = T.AccentON; b.Font = Enum.Font.GothamBold; b.TextSize = 13
-    b.LayoutOrder = order; b.PlaceholderText = ph; b.PlaceholderColor3 = T.TextSub; b.Text = ""
+    b.Size = UDim2.new(0.92,0,0,28); b.BackgroundColor3 = T.ElemBG
+    b.TextColor3 = T.AccentON; b.Font = Enum.Font.GothamBold; b.TextSize = 12
+    b.LayoutOrder = order; b.PlaceholderText = ph
+    b.PlaceholderColor3 = T.TextDim; b.Text = ""; b.BorderSizePixel = 0
     Instance.new("UICorner", b).CornerRadius = UDim.new(0,6); stroke(b)
     return b
 end
 
 local function mkBtn(parent, text, bg, order)
     local b = stealth(Instance.new("TextButton", parent))
-    b.Size = UDim2.new(0.9,0,0,34); b.BackgroundColor3 = bg or T.ElemBG
-    b.TextColor3 = T.TextMain; b.Font = Enum.Font.GothamBold; b.TextSize = 13
-    b.Text = text; b.LayoutOrder = order
+    b.Size = UDim2.new(0.92,0,0,30); b.BackgroundColor3 = bg or T.ElemBG
+    b.TextColor3 = T.TextMain; b.Font = Enum.Font.GothamSemibold; b.TextSize = 12
+    b.Text = text; b.LayoutOrder = order; b.BorderSizePixel = 0
     Instance.new("UICorner", b).CornerRadius = UDim.new(0,6); stroke(b)
     return b
 end
 
 local function mkPresets(parent, label, vals, box, order)
     local row = stealth(Instance.new("Frame", parent))
-    row.Size = UDim2.new(0.9,0,0,26); row.BackgroundTransparency = 1; row.LayoutOrder = order
+    row.Size = UDim2.new(0.92,0,0,22); row.BackgroundTransparency = 1; row.LayoutOrder = order
     local lbl = stealth(Instance.new("TextLabel", row))
-    lbl.Size = UDim2.new(0.35,0,1,0); lbl.BackgroundTransparency = 1
-    lbl.Text = label; lbl.TextColor3 = T.TextSub; lbl.Font = Enum.Font.GothamSemibold
-    lbl.TextSize = 11; lbl.TextXAlignment = Enum.TextXAlignment.Left
-    local w = 0.6/#vals
+    lbl.Size = UDim2.new(0.28,0,1,0); lbl.BackgroundTransparency = 1
+    lbl.Text = label; lbl.TextColor3 = T.TextDim; lbl.Font = Enum.Font.Gotham
+    lbl.TextSize = 10; lbl.TextXAlignment = Enum.TextXAlignment.Left
+    local w = 0.72/#vals
     for i,v in ipairs(vals) do
         local b = stealth(Instance.new("TextButton", row))
-        b.Size = UDim2.new(w,-4,1,0); b.Position = UDim2.new(0.35+w*(i-1),2,0,0)
-        b.BackgroundColor3 = T.ElemHover; b.TextColor3 = T.TextMain
-        b.Font = Enum.Font.GothamBold; b.TextSize = 11; b.Text = tostring(v)
+        b.Size = UDim2.new(w,-3,1,0); b.Position = UDim2.new(0.28+w*(i-1),2,0,0)
+        b.BackgroundColor3 = T.ElemBG; b.TextColor3 = T.TextSub
+        b.Font = Enum.Font.GothamBold; b.TextSize = 10; b.Text = tostring(v)
+        b.BorderSizePixel = 0
         Instance.new("UICorner", b).CornerRadius = UDim.new(0,4); stroke(b)
-        b.MouseButton1Click:Connect(function() box.Text = tostring(v) end)
+        b.MouseButton1Click:Connect(function()
+            box.Text = tostring(v)
+            b.TextColor3 = T.AccentON
+            task.delay(0.3, function() b.TextColor3 = T.TextSub end)
+        end)
     end
 end
 
 local function mkLabel(parent, text, order)
     local l = stealth(Instance.new("TextLabel", parent))
-    l.Size = UDim2.new(0.9,0,0,20); l.BackgroundTransparency = 1
-    l.Text = text; l.TextColor3 = T.TextSub; l.Font = Enum.Font.GothamSemibold
-    l.TextSize = 11; l.TextXAlignment = Enum.TextXAlignment.Left; l.LayoutOrder = order
+    l.Size = UDim2.new(0.92,0,0,16); l.BackgroundTransparency = 1
+    l.Text = text; l.TextColor3 = T.TextDim; l.Font = Enum.Font.GothamSemibold
+    l.TextSize = 10; l.TextXAlignment = Enum.TextXAlignment.Left; l.LayoutOrder = order
     return l
 end
 
@@ -461,24 +612,31 @@ local followBtn    = mkBtn(cTroll, "👁 Follow Player (Toggle)",  Color3.fromRG
 -- 8. TAB SWITCHING
 -- ============================================================
 local tabs = {
-    {btn=tabMain,   c=cMain},
-    {btn=tabTP,     c=cTP},
-    {btn=tabEmotes, c=cEmotes},
-    {btn=tabTroll,  c=cTroll},
+    {btn=tabMain,   c=cMain,   x=0},
+    {btn=tabTP,     c=cTP,     x=0.25},
+    {btn=tabEmotes, c=cEmotes, x=0.50},
+    {btn=tabTroll,  c=cTroll,  x=0.75},
 }
-local function switchTab(ab, ac)
+local function switchTab(ab, ac, ax)
     for _,t in ipairs(tabs) do
         t.c.Visible = false
-        t.btn.BackgroundColor3 = T.MainBG
-        t.btn.TextColor3 = (t.btn == tabTroll) and T.Troll or T.TextSub
+        t.btn.BackgroundTransparency = 1
+        t.btn.TextColor3 = (t.btn == tabTroll) and Color3.fromRGB(180,50,65) or T.TextDim
+        t.btn.Font = Enum.Font.GothamSemibold
     end
-    ac.Visible = true; ab.BackgroundColor3 = T.ElemHover
+    ac.Visible = true
     ab.TextColor3 = (ab == tabTroll) and T.Troll or T.TextMain
+    ab.Font = Enum.Font.GothamBold
+    -- Move indicator to active tab
+    tabIndicator.Position = UDim2.new(ax, 5, 1, -2)
+    tabIndicator.Size = UDim2.new(0.25, -10, 0, 2)
+    tabIndicator.BackgroundColor3 = (ab == tabTroll) and T.Troll or T.AccentON
 end
 for _,t in ipairs(tabs) do
-    t.btn.MouseButton1Click:Connect(function() switchTab(t.btn, t.c) end)
+    local tt = t
+    t.btn.MouseButton1Click:Connect(function() switchTab(tt.btn, tt.c, tt.x) end)
 end
-switchTab(tabMain, cMain)
+switchTab(tabMain, cMain, 0)
 
 -- ============================================================
 -- 9. STATE
@@ -1838,8 +1996,10 @@ end
 -- 21. KEYBIND SYSTEM + MENU TOGGLE
 -- ============================================================
 local isMenuOpen  = false
-local openPos     = UDim2.new(0, 20, 0.5, -250)
-local closedPos   = UDim2.new(0, -320, 0.5, -250)
+local openPos      = UDim2.new(0, 20,   0.5, -250)
+local closedPos    = UDim2.new(0, -320, 0.5, -250)
+local openShadow   = UDim2.new(0, 14,   0.5, -253)
+local closedShadow = UDim2.new(0, -326, 0.5, -253)
 
 -- FIX #6: track the input connection so Panic can disconnect it too
 track("input", UserInputService.InputBegan:Connect(function(input, gp)
@@ -1864,8 +2024,11 @@ track("input", UserInputService.InputBegan:Connect(function(input, gp)
 
     if input.KeyCode == keybinds.Menu then
         isMenuOpen = not isMenuOpen
-        TweenService:Create(main, TweenInfo.new(0.4, Enum.EasingStyle.Quart, Enum.EasingDirection.Out),
-            {Position = isMenuOpen and openPos or closedPos}):Play()
+        local pos  = isMenuOpen and openPos    or closedPos
+        local spos = isMenuOpen and openShadow or closedShadow
+        local ti = TweenInfo.new(0.35, Enum.EasingStyle.Quart, Enum.EasingDirection.Out)
+        TweenService:Create(main,   ti, {Position = pos}):Play()
+        TweenService:Create(shadow, ti, {Position = spos}):Play()
     end
 
     -- Chỉ trigger nếu keybind đã được set (không phải Unknown)
