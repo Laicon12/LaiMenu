@@ -38,16 +38,44 @@ local T = {
 }
 
 -- ============================================================
--- GUI SETUP (ĐÃ FIX LỖI HIỂN THỊ)
+-- GUI SETUP (SMART SECURE INJECTION)
 -- ============================================================
 local gui = Instance.new("ScreenGui")
 gui.Name = randName(16)
 gui.ResetOnSpawn = false
 gui.IgnoreGuiInset = true
 
--- Tự động chọn vùng an toàn mà không cần gethui
-local s, core = pcall(function() return game:GetService("CoreGui") end)
-gui.Parent = (s and core) and core or player:WaitForChild("PlayerGui")
+local function getSecureContainer()
+    -- 1. gethui() - Vùng chứa ẩn tuyệt đối của Executor xịn
+    if type(gethui) == "function" then
+        local s, ui = pcall(gethui)
+        if s and ui then return ui end
+    end
+    -- 2. CoreGui với cloneref (Nhân bản CoreGui để giấu)
+    if type(cloneref) == "function" then
+        local s, core = pcall(function() return cloneref(game:GetService("CoreGui")) end)
+        if s and core then return core end
+    end
+    -- 3. CoreGui gốc (Vẫn an toàn hơn PlayerGui rất nhiều)
+    local s, core = pcall(function() return game:GetService("CoreGui") end)
+    if s and core then return core end
+    -- 4. Đường cùng mới dùng PlayerGui
+    return player:WaitForChild("PlayerGui")
+end
+
+-- API Bảo vệ GUI khỏi các luồng quét của Anti-cheat
+pcall(function()
+    if syn and syn.protect_gui then
+        syn.protect_gui(gui)
+    elseif type(protectgui) == "function" then
+        protectgui(gui)
+    elseif type(protect_gui) == "function" then
+        protect_gui(gui)
+    end
+end)
+
+-- Gắn GUI vào vùng an toàn nhất
+gui.Parent = getSecureContainer()
 
 local shadow = Instance.new("Frame", gui); shadow.Size = UDim2.new(0, 292, 0, 512); shadow.BackgroundColor3 = Color3.fromRGB(0,0,0); shadow.BackgroundTransparency = 0.55; shadow.BorderSizePixel = 0; Instance.new("UICorner", shadow).CornerRadius = UDim.new(0, 14)
 local main = Instance.new("Frame", gui); main.Size = UDim2.new(0, 280, 0, 500); main.BackgroundColor3 = T.MainBG; main.BackgroundTransparency = 0.08; main.BorderSizePixel = 0; Instance.new("UICorner", main).CornerRadius = UDim.new(0, 12)
@@ -64,7 +92,7 @@ local accentBar = Instance.new("Frame", main); accentBar.Size = UDim2.new(1, -24
 local titleF = Instance.new("Frame", main); titleF.Size = UDim2.new(1, 0, 0, 44); titleF.BackgroundTransparency = 1; titleF.BorderSizePixel = 0
 local titleDot = Instance.new("Frame", titleF); titleDot.Size = UDim2.new(0, 6, 0, 6); titleDot.Position = UDim2.new(0, 14, 0.5, -3); titleDot.BackgroundColor3 = T.AccentON; titleDot.BorderSizePixel = 0; Instance.new("UICorner", titleDot).CornerRadius = UDim.new(1, 0)
 local titleLbl = Instance.new("TextLabel", titleF); titleLbl.Size = UDim2.new(0, 140, 1, 0); titleLbl.Position = UDim2.new(0, 26, 0, 0); titleLbl.BackgroundTransparency = 1; titleLbl.Text = "LAI ADMIN"; titleLbl.TextColor3 = T.TextMain; titleLbl.Font = Enum.Font.GothamBlack; titleLbl.TextSize = 13; titleLbl.TextXAlignment = Enum.TextXAlignment.Left
-local titleSub = Instance.new("TextLabel", titleF); titleSub.Size = UDim2.new(0, 100, 1, 0); titleSub.Position = UDim2.new(0, 112, 0, 0); titleSub.BackgroundTransparency = 1; titleSub.Text = "v3.4"; titleSub.TextColor3 = T.TextDim; titleSub.Font = Enum.Font.Gotham; titleSub.TextSize = 11; titleSub.TextXAlignment = Enum.TextXAlignment.Left
+local titleSub = Instance.new("TextLabel", titleF); titleSub.Size = UDim2.new(0, 100, 1, 0); titleSub.Position = UDim2.new(0, 112, 0, 0); titleSub.BackgroundTransparency = 1; titleSub.Text = "v3.5"; titleSub.TextColor3 = T.TextDim; titleSub.Font = Enum.Font.Gotham; titleSub.TextSize = 11; titleSub.TextXAlignment = Enum.TextXAlignment.Left
 local menuBindBtn = Instance.new("TextButton", titleF); menuBindBtn.Size = UDim2.new(0, 44, 0, 22); menuBindBtn.Position = UDim2.new(1, -54, 0.5, -11); menuBindBtn.BackgroundColor3 = T.ElemBG; menuBindBtn.TextColor3 = T.AccentON; menuBindBtn.Font = Enum.Font.GothamBold; menuBindBtn.TextSize = 10; menuBindBtn.Text = keybinds.Menu.Name; menuBindBtn.BorderSizePixel = 0; Instance.new("UICorner", menuBindBtn).CornerRadius = UDim.new(0, 4); Instance.new("UIStroke", menuBindBtn).Color = T.AccentDim
 local titleSep = Instance.new("Frame", main); titleSep.Size = UDim2.new(1, -20, 0, 1); titleSep.Position = UDim2.new(0, 10, 0, 44); titleSep.BackgroundColor3 = T.Border; titleSep.BorderSizePixel = 0
 
@@ -340,13 +368,19 @@ local function Panic()
     if isNoclip then isNoclip = false; setBtn(noclipBtn, false); for _,p in ipairs(noclipParts) do if p and p.Parent then p.CanCollide = true end end; noclipParts = {} end
     if isESP then isESP = false; setBtn(espBtn, false); pcall(function() espFolder:ClearAllChildren() end) end
     if isSelfFrozen then isSelfFrozen = false; untrack("selfFreeze"); selfFrzConn = nil; local hrp2 = player.Character and player.Character:FindFirstChild("HumanoidRootPart"); local hum2 = player.Character and player.Character:FindFirstChild("Humanoid"); if hrp2 then hrp2.Anchored = false end; if hum2 then hum2.WalkSpeed = 16; hum2.JumpPower = 50 end; selfFrzCF = nil; selfFrzBtn.Text = "🧊 Freeze Self"; setBtn(selfFrzBtn, false) end
-    if isFakeInvis then ToggleFakeInvis() end; if isMouseTween then ToggleMouseTween() end; if isAntiFling then ToggleAntiFling() end; if isBypassAC then ToggleBypassAC() end
+    
+    if isFakeInvis then ToggleFakeInvis() end
+    if isMouseTween then ToggleMouseTween() end
+    if isAntiFling then ToggleAntiFling() end
+    if isBypassAC then ToggleBypassAC() end
+    
     freezeConn = nil; frozenTarget = nil; frozenCF = nil; freezeBtn.Text = "🧊 Freeze Player"
     isSpinning = false; spinTarget = nil; spinBtn.BackgroundColor3 = Color3.fromRGB(100,20,140); spinBtn.Text = "🌀 Spin Player (Toggle)"
     isFollowing = false; followTarget = nil; followBtn.BackgroundColor3 = Color3.fromRGB(20,120,80); followBtn.Text = "👁 Follow Player (Toggle)"
     if isTouchFling then isTouchFling = false; untrack("touchFling"); touchFlingConn = nil; touchFlingBtn.BackgroundColor3 = Color3.fromRGB(160,50,10); touchFlingBtn.TextColor3 = T.TextMain; touchFlingBtn.Text = "👆 Touch Fling (Toggle)" end
     if isNanFling then isNanFling = false; untrack("nanFling"); nanFlingConn = nil; nanFlingTarget = nil; local myHum = player.Character and player.Character:FindFirstChildOfClass("Humanoid"); pcall(function() if myHum then myHum.PlatformStand = false end end); nanFlingBtn.BackgroundColor3 = Color3.fromRGB(80,0,0); nanFlingBtn.TextColor3 = T.TextMain; nanFlingBtn.Text = "☠️ NaN Fling (Toggle)" end
-    pcall(stopWeld); if isPushing then isPushing = false; untrack("weldPush"); weldPushBtn.BackgroundColor3 = Color3.fromRGB(40,40,60); weldPushBtn.TextColor3 = T.TextMain; weldPushBtn.Text = "👊 Push" end
+    pcall(stopWeld)
+    if isPushing then isPushing = false; untrack("weldPush"); weldPushBtn.BackgroundColor3 = Color3.fromRGB(40,40,60); weldPushBtn.TextColor3 = T.TextMain; weldPushBtn.Text = "👊 Push" end
     pcall(function() local orig = titleLbl.TextColor3; titleLbl.Text = "⚠ PANIC — RESET"; titleLbl.TextColor3 = T.Troll; task.delay(1.5, function() titleLbl.Text = "LAI ADMIN"; titleLbl.TextColor3 = orig end) end)
 end
 
@@ -359,17 +393,20 @@ track("input", UserInputService.InputBegan:Connect(function(input, gp)
     end
     if gp then return end
     if input.KeyCode == Enum.KeyCode.RightShift then Panic(); return end
+    
     if input.KeyCode == keybinds.Menu then
         isMenuOpen = not isMenuOpen
         local pos  = isMenuOpen and openPos or closedPos; local spos = isMenuOpen and openShadow or closedShadow
         local ti = TweenInfo.new(0.35, Enum.EasingStyle.Quart, Enum.EasingDirection.Out)
         TweenService:Create(main, ti, {Position = pos}):Play(); TweenService:Create(shadow, ti, {Position = spos}):Play()
     end
+
     local function tryBind(key, fn) if key ~= Enum.KeyCode.Unknown and input.KeyCode == key then fn() end end
     tryBind(keybinds.Fly, ToggleFly); tryBind(keybinds.WalkSpeed, ToggleWalkSpeed); tryBind(keybinds.JumpPower, ToggleJumpPower)
     tryBind(keybinds.InfJump, ToggleInfJump); tryBind(keybinds.Noclip, ToggleNoclip); tryBind(keybinds.ESP, ToggleESP)
     tryBind(keybinds.SelfFreeze, ToggleSelfFreeze); tryBind(keybinds.FakeInvis, ToggleFakeInvis)
     tryBind(keybinds.AntiFling, ToggleAntiFling); tryBind(keybinds.BypassAC, ToggleBypassAC)
+
     if keybinds.Freeze ~= Enum.KeyCode.Unknown and input.KeyCode == keybinds.Freeze then
         local t = FindPlayer(trollBox.Text)
         if t and t.Character and t.Character:FindFirstChild("HumanoidRootPart") then
@@ -378,4 +415,4 @@ track("input", UserInputService.InputBegan:Connect(function(input, gp)
     end
 end))
 
-print("[LAI ADMIN] Bảng Menu đã được mở thành công!")
+print("[LAI ADMIN] GUI Đã chui vào vùng bảo mật an toàn thành công!")
