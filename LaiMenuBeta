@@ -1724,5 +1724,5 @@ end))
 
 task.wait(0.5)
 pcall(function() ToggleAntiFling() end)
-pcall(function() ToggleBypassAC() end)
+---pcall(function() ToggleBypassAC() end)
 print("[LAI ADMIN v4.7] Masterpiece - 100% Tính Năng. Full Source Code!")
