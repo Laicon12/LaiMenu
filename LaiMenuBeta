@@ -1,96 +1,52 @@
 -- ============================================================
--- AUTO ADONIS BYPASS (CHẠY ĐẦU TIÊN KHI EXECUTE)
+-- ADONIS STEALTH BYPASS v5.1 (REnv/Hooks + Spoofing)
 -- ============================================================
-local notify = getfenv().notify or warn
-local ShitMissing = {}
-local MissingMessage = " doesn't exist. This will lead to a limited bypass. Do not complain if you get detected."
-
-local getallthreads = getallthreads or getreg and function()
-    local reg = getreg()
-    for i = #reg, 1, -1 do
-        if type(reg[i]) == "thread" then continue end
-        table.remove(reg, i)
-    end
-    return reg
-end or nil
-
-local hookfunction = syn and syn.oth and syn.oth.hook or oth and oth.hook or hookfunction or function(a) return a end
-
-if getexecutorname and getexecutorname() == "Volcano" then
-    local realhookfunction = getgenv().hookfunction
-    local realothhook = getgenv().oth.hook
-    hookfunction = function(to_hook, hook)
-        if debug.info(to_hook, "s") == "[C]" then
-            return realothhook(to_hook, hook)
-        else
-            return realhookfunction(to_hook, hook)
-        end
-    end
-end
-
-if not hookfunction then ShitMissing[#ShitMissing + 1] = "oth.hook or hookfunction" end
-if not isfunctionhooked then ShitMissing[#ShitMissing + 1] = "isfunctionhooked"; getgenv().isfunctionhooked = function(...) return false end end
-if not filtergc and not getgc then ShitMissing[#ShitMissing + 1] = "filtergc or getgc" end
-if not getallthreads and not getreg then ShitMissing[#ShitMissing + 1] = "getallthreads or getreg" end
-
-local threads = {}
 local AdonisFound = false
-local check = function()
-    table.clear(threads)
-    for _, v in next, getallthreads and getallthreads() or {} do
-        local source = debug.info(v, 1, "s")
-        if source and (source:find(".Core.Anti", nil, true) or source:find(".Plugins.Anti_Cheat", nil, true)) then
-            threads[#threads + 1] = v
-            AdonisFound = true
-        end
-    end
-end
+local DetectedFunc = nil
+local OriginalInfo = {}
 
-local Bypassed = false
-local YieldFunction = function() coroutine.yield() end
-if newcclosure then YieldFunction = newcclosure(YieldFunction) end
-
-local bypass = function()
-    if #threads > 0 then
-        for _, v in next, threads do
-            pcall(task.cancel, v)
-        end
-        table.clear(threads)
-    end
-    if hookfunction then
-        if filtergc then
-            local AntiTable = filtergc("table", {Keys = {"RLocked", "Detected"}}, true)
-            if AntiTable then
-                for _, v in next, AntiTable do
-                    if type(v) ~= "function" or isfunctionhooked(v) then continue end
-                    hookfunction(v, YieldFunction)
-                end
-            end
-        elseif getgc then
-            local found = false
-            for _, v in next, getgc(true) do
-                if type(v) ~= "table" or not rawget(v, "Detected") or not rawget(v, "RLocked") then continue end
-                for _, f in next, v do
-                    if type(f) ~= "function" or isfunctionhooked(f) then continue end
-                    hookfunction(f, YieldFunction)
-                end
-                found = true
-                break
+local function FindDetected()
+    if filtergc then
+        local Query = { Constants = {" - On Xbox", " - On mobile", "_"}, IgnoreExecutor = true }
+        local matches = filtergc("function", Query)
+        if matches and matches[1] then DetectedFunc = matches[1]; AdonisFound = true end
+    elseif getgc then
+        for _, v in next, getgc(true) do
+            if type(v) == "function" then
+                pcall(function()
+                    local info = debug.info(v, "s")
+                    if info and (info:find("Adonis") or info:find("Anti")) then
+                        local constants = debug.getconstants(v)
+                        if constants and table.find(constants, " - On Xbox") then DetectedFunc = v; AdonisFound = true end
+                    end
+                end)
+                if AdonisFound then break end
             end
         end
     end
-    Bypassed = true
 end
 
--- TỰ ĐỘNG THỰC THI KIỂM TRA & BYPASS
-check()
-if AdonisFound then
-    pcall(bypass)
-    warn("[LAI ADMIN] Phat hien Adonis - Da tu dong Bypass thanh cong!")
+local function StealthBypass()
+    if not AdonisFound or not DetectedFunc then return end
+    local a, b, c, d, e, f = debug.info(DetectedFunc, "slanf")
+    OriginalInfo = {a, b, c, d, e, f}
+    local hook = hookfunction or (syn and syn.oth and syn.oth.hook)
+    if not hook then return end
+    local oldInfo
+    oldInfo = hook(debug.info, newcclosure(function(...)
+        local args = {...}
+        if args[1] == DetectedFunc and args[2] == "slanf" then return unpack(OriginalInfo) end
+        return oldInfo(...)
+    end))
+    hook(DetectedFunc, newcclosure(function() return task.wait(9e10) end))
+    warn("[LAI ADMIN v5.1] Stealth Bypass Activated. Adonis is BLIND.")
 end
+
+pcall(FindDetected)
+if AdonisFound then pcall(StealthBypass) end
 
 -- ============================================================
--- LAI ADMIN V4.9 - CORE & MENU GUI
+-- LAI ADMIN V5.1 - CORE & MENU GUI
 -- ============================================================
 local Players = game:GetService("Players")
 local RunService = game:GetService("RunService")
@@ -104,7 +60,6 @@ local camera = Workspace.CurrentCamera
 local mouse = player:GetMouse()
 
 math.randomseed(math.floor(tick() * 1000) + math.floor(os.clock() * 1000))
-
 local function randName(len)
     len = math.max(4, len or 16)
     local bytes = {}
@@ -114,26 +69,18 @@ local function randName(len)
 end
 
 local Connections = {}
-local function track(label, conn) 
-    if Connections[label] and Connections[label].Connected then Connections[label]:Disconnect() end
-    Connections[label] = conn
-    return conn 
-end
-local function untrack(label) 
-    if Connections[label] then 
-        if Connections[label].Connected then Connections[label]:Disconnect() end
-        Connections[label] = nil 
-    end 
-end
+local function track(l, c) if Connections[l] and Connections[l].Connected then Connections[l]:Disconnect() end; Connections[l] = c; return c end
+local function untrack(l) if Connections[l] then if Connections[l].Connected then Connections[l]:Disconnect() end; Connections[l] = nil end end
 
 local keybinds = {
     Menu = Enum.KeyCode.Insert, Fly = Enum.KeyCode.C, WalkSpeed = Enum.KeyCode.V, SelfFreeze = Enum.KeyCode.B,
     JumpPower = Enum.KeyCode.Unknown, InfJump = Enum.KeyCode.Unknown, ESP = Enum.KeyCode.Unknown,
     Noclip = Enum.KeyCode.Unknown, Freeze = Enum.KeyCode.Unknown, FakeInvis = Enum.KeyCode.Unknown,
-    AntiFling = Enum.KeyCode.Unknown, BypassAC = Enum.KeyCode.Unknown, FOV = Enum.KeyCode.Unknown, MaxZoom = Enum.KeyCode.Unknown
+    AntiFling = Enum.KeyCode.Unknown, BypassAC = Enum.KeyCode.Unknown, FOV = Enum.KeyCode.Unknown, MaxZoom = Enum.KeyCode.Unknown,
+    AntiLagback = Enum.KeyCode.Unknown
 }
 
-local ConfigName = "LaiAdmin_Config.json"
+local ConfigName = "LaiAdmin_Config_v5.1.json"
 
 local T = {
     MainBG = Color3.fromRGB(10,11,15), ElemBG = Color3.fromRGB(20,21,28), ElemHover = Color3.fromRGB(28,30,40), 
@@ -147,52 +94,28 @@ local S = {
     isMenuOpen = true, curFlyMode = "Camera", isFlying = false, isWalk = false, isJump = false, isInfJump = false, 
     isNoclip = false, isESP = false, isSelfFrozen = false, isFakeInvis = false, isAntiFling = false, isBypassAC = false, 
     isFOV = false, isZoom = false, mouseTpMode = nil, isModernFling = false, isFlingActive = false, isTouchFling = false, 
-    isNanFling = false, nanMode = "area", isPushing = false, isSpinning = false, isFollowing = false, nanFlingTarget = nil, nanFlingConn = nil
+    isNanFling = false, nanMode = "area", isPushing = false, isSpinning = false, isFollowing = false, nanFlingTarget = nil, 
+    isSpinFlingV2 = false, isAntiLagback = false
 }
 
-local gui = Instance.new("ScreenGui")
-gui.Name = randName(16)
-gui.ResetOnSpawn = false
-gui.IgnoreGuiInset = true
-
-local function getSecureContainer()
-    local s, core = pcall(function() return cloneref and cloneref(game:GetService("CoreGui")) or game:GetService("CoreGui") end)
-    if s and core then return core end
-    return nil -- Khong dung PlayerGui nua de chong bi detect
-end
+local gui = Instance.new("ScreenGui"); gui.Name = randName(16); gui.ResetOnSpawn = false; gui.IgnoreGuiInset = true
+local function getSecureContainer() local s, core = pcall(function() return cloneref and cloneref(game:GetService("CoreGui")) or game:GetService("CoreGui") end); if s and core then return core end return nil end
 pcall(function() gui.Parent = getSecureContainer() end)
 
-local shadow = Instance.new("Frame", gui)
-shadow.Size, shadow.BackgroundColor3, shadow.BackgroundTransparency, shadow.BorderSizePixel = UDim2.new(0, 292, 0, 512), Color3.new(0,0,0), 0.55, 0
-Instance.new("UICorner", shadow).CornerRadius = UDim.new(0, 14)
-
-local main = Instance.new("Frame", gui)
-main.Size, main.BackgroundColor3, main.BackgroundTransparency, main.BorderSizePixel = UDim2.new(0, 280, 0, 500), T.MainBG, 0.08, 0
-Instance.new("UICorner", main).CornerRadius = UDim.new(0, 12)
-
-local openPos, closedPos = UDim2.new(0, 20, 0.5, -250), UDim2.new(0, -320, 0.5, -250)
-main.Position, shadow.Position = openPos, UDim2.new(0, 14, 0.5, -253)
-
+local shadow = Instance.new("Frame", gui); shadow.Size, shadow.BackgroundColor3, shadow.BackgroundTransparency, shadow.BorderSizePixel = UDim2.new(0, 292, 0, 512), Color3.new(0,0,0), 0.55, 0; Instance.new("UICorner", shadow).CornerRadius = UDim.new(0, 14)
+local main = Instance.new("Frame", gui); main.Size, main.BackgroundColor3, main.BackgroundTransparency, main.BorderSizePixel = UDim2.new(0, 280, 0, 500), T.MainBG, 0.08, 0; Instance.new("UICorner", main).CornerRadius = UDim.new(0, 12)
+local openPos, closedPos = UDim2.new(0, 20, 0.5, -250), UDim2.new(0, -320, 0.5, -250); main.Position, shadow.Position = openPos, UDim2.new(0, 14, 0.5, -253)
 local outerStroke = Instance.new("UIStroke", main); outerStroke.Color = T.Border; outerStroke.Thickness = 1
 local accentBar = Instance.new("Frame", main); accentBar.Size, accentBar.Position, accentBar.BackgroundColor3, accentBar.BackgroundTransparency, accentBar.BorderSizePixel = UDim2.new(1, -24, 0, 1), UDim2.new(0, 12, 0, 0), T.AccentLine, 0.3, 0
 
 local titleF = Instance.new("Frame", main); titleF.Size, titleF.BackgroundTransparency, titleF.BorderSizePixel = UDim2.new(1, 0, 0, 44), 1, 0
 local titleDot = Instance.new("Frame", titleF); titleDot.Size, titleDot.Position, titleDot.BackgroundColor3, titleDot.BorderSizePixel = UDim2.new(0, 6, 0, 6), UDim2.new(0, 14, 0.5, -3), T.AccentON, 0; Instance.new("UICorner", titleDot).CornerRadius = UDim.new(1, 0)
+local titleLbl = Instance.new("TextLabel", titleF); titleLbl.Size, titleLbl.Position, titleLbl.BackgroundTransparency, titleLbl.Text, titleLbl.TextColor3, titleLbl.Font, titleLbl.TextSize, titleLbl.TextXAlignment = UDim2.new(0, 140, 1, 0), UDim2.new(0, 26, 0, 0), 1, "LAI ADMIN", T.TextMain, Enum.Font.GothamBlack, 13, Enum.TextXAlignment.Left
+local titleSub = Instance.new("TextLabel", titleF); titleSub.Size, titleSub.Position, titleSub.BackgroundTransparency, titleSub.Text, titleSub.TextColor3, titleSub.Font, titleSub.TextSize, titleSub.TextXAlignment = UDim2.new(0, 100, 1, 0), UDim2.new(0, 112, 0, 0), 1, "v5.1", T.TextDim, Enum.Font.Gotham, 11, Enum.TextXAlignment.Left
 
-local titleLbl = Instance.new("TextLabel", titleF)
-titleLbl.Size, titleLbl.Position, titleLbl.BackgroundTransparency, titleLbl.Text, titleLbl.TextColor3, titleLbl.Font, titleLbl.TextSize, titleLbl.TextXAlignment = UDim2.new(0, 140, 1, 0), UDim2.new(0, 26, 0, 0), 1, "LAI ADMIN", T.TextMain, Enum.Font.GothamBlack, 13, Enum.TextXAlignment.Left
-
-local titleSub = Instance.new("TextLabel", titleF)
-titleSub.Size, titleSub.Position, titleSub.BackgroundTransparency, titleSub.Text, titleSub.TextColor3, titleSub.Font, titleSub.TextSize, titleSub.TextXAlignment = UDim2.new(0, 100, 1, 0), UDim2.new(0, 112, 0, 0), 1, "v4.9", T.TextDim, Enum.Font.Gotham, 11, Enum.TextXAlignment.Left
-
-UI.menuBindBtn = Instance.new("TextButton", titleF)
-UI.menuBindBtn.Size, UI.menuBindBtn.Position, UI.menuBindBtn.BackgroundColor3, UI.menuBindBtn.TextColor3, UI.menuBindBtn.Font, UI.menuBindBtn.TextSize, UI.menuBindBtn.Text, UI.menuBindBtn.BorderSizePixel = UDim2.new(0, 44, 0, 22), UDim2.new(1, -54, 0.5, -11), T.ElemBG, T.AccentON, Enum.Font.GothamBold, 10, keybinds.Menu.Name, 0; Instance.new("UICorner", UI.menuBindBtn).CornerRadius = UDim.new(0, 4)
-local mbStroke = Instance.new("UIStroke", UI.menuBindBtn); mbStroke.Color, mbStroke.Thickness = T.AccentDim, 1
-
-local updateBindTexts = {}
-updateBindTexts["Menu"] = function() local kb = keybinds["Menu"]; UI.menuBindBtn.Text = (kb and kb ~= Enum.KeyCode.Unknown) and kb.Name or "-" end
+UI.menuBindBtn = Instance.new("TextButton", titleF); UI.menuBindBtn.Size, UI.menuBindBtn.Position, UI.menuBindBtn.BackgroundColor3, UI.menuBindBtn.TextColor3, UI.menuBindBtn.Font, UI.menuBindBtn.TextSize, UI.menuBindBtn.Text, UI.menuBindBtn.BorderSizePixel = UDim2.new(0, 44, 0, 22), UDim2.new(1, -54, 0.5, -11), T.ElemBG, T.AccentON, Enum.Font.GothamBold, 10, keybinds.Menu.Name, 0; Instance.new("UICorner", UI.menuBindBtn).CornerRadius = UDim.new(0, 4); local mbStroke = Instance.new("UIStroke", UI.menuBindBtn); mbStroke.Color, mbStroke.Thickness = T.AccentDim, 1
+local updateBindTexts = {}; updateBindTexts["Menu"] = function() local kb = keybinds["Menu"]; UI.menuBindBtn.Text = (kb and kb ~= Enum.KeyCode.Unknown) and kb.Name or "-" end
 UI.menuBindBtn.MouseButton1Click:Connect(function() S.listenAct = "Menu"; S.listenBtn = UI.menuBindBtn; UI.menuBindBtn.Text = "..."; UI.menuBindBtn.TextColor3 = T.Warn end)
-
 local titleSep = Instance.new("Frame", main); titleSep.Size, titleSep.Position, titleSep.BackgroundColor3, titleSep.BorderSizePixel = UDim2.new(1, -20, 0, 1), UDim2.new(0, 10, 0, 44), T.Border, 0
 
 local drag, dStart, sPos = false, nil, nil
@@ -221,10 +144,12 @@ local function mkList(p, tBox, ord) local w = Instance.new("Frame", p); w.Size, 
 UI.flyBtn = mkRow(UI.cMain, "Toggle Fly", "Fly", 1); UI.flyModeBtn = mkBtn(UI.cMain, "Fly Mode: Camera", T.ElemBG, 2); UI.flySpeedBox = mkInp(UI.cMain, "Fly Speed (Def: 50)", 3); UI.flySpeedBox.Text = "50"; mkPre(UI.cMain, "Speed:", {50, 100, 300}, UI.flySpeedBox, 4)
 UI.walkBtn = mkRow(UI.cMain, "Toggle WalkSpeed", "WalkSpeed", 5); UI.walkBox = mkInp(UI.cMain, "Walk Speed (Def: 16)", 6); UI.walkBox.Text = "16"; mkPre(UI.cMain, "Speed:", {16, 50, 100}, UI.walkBox, 7)
 UI.jumpBtn = mkRow(UI.cMain, "Toggle JumpPower", "JumpPower", 8); UI.jumpBox = mkInp(UI.cMain, "Jump Power (Def: 50)", 9); UI.jumpBox.Text = "50"; mkPre(UI.cMain, "Power:", {50, 100, 250}, UI.jumpBox, 10)
-UI.infJumpBtn = mkRow(UI.cMain, "Infinite Jump", "InfJump", 11); UI.noclipBtn = mkRow(UI.cMain, "Toggle Noclip", "Noclip", 12); UI.espBtn = mkRow(UI.cMain, "Toggle Box ESP", "ESP", 13); UI.selfFrzBtn = mkRow(UI.cMain, "🧊 Freeze Self", "SelfFreeze", 14); UI.fakeInvisBtn = mkRow(UI.cMain, "👻 Toggle Fake Invis", "FakeInvis", 15); UI.fakeInvisBox = mkInp(UI.cMain, "Invis Offset (Def: 7)", 16); UI.fakeInvisBox.Text = "7"
-UI.antiFlingBtn = mkRow(UI.cMain, "🛡️ Toggle Anti-Fling", "AntiFling", 17); UI.bypassAcBtn = mkRow(UI.cMain, "🪝 Bypass Walk/Jump AC", "BypassAC", 18)
-mkLbl(UI.cMain, "─── Camera Mods ───", 19); UI.fovBox = mkInp(UI.cMain, "Field of View (Def: 70)", 20); UI.fovBox.Text = "70"; mkPre(UI.cMain, "FOV:", {70, 90, 120}, UI.fovBox, 21); UI.fovBtn = mkRow(UI.cMain, "👁️ Toggle Force FOV", "FOV", 22); UI.zoomBtn = mkRow(UI.cMain, "🔍 Unlock Max Zoom", "MaxZoom", 23)
-UI.saveCfgBtn = mkBtn(UI.cMain, "💾 Save Config", Color3.fromRGB(40,100,60), 99)
+UI.antiLagbackBtn = mkRow(UI.cMain, "🛡️ Toggle Anti-Lagback", "AntiLagback", 11)
+UI.infJumpBtn = mkRow(UI.cMain, "Infinite Jump", "InfJump", 12); UI.noclipBtn = mkRow(UI.cMain, "Toggle Noclip", "Noclip", 13); UI.espBtn = mkRow(UI.cMain, "Toggle Box ESP", "ESP", 14); UI.selfFrzBtn = mkRow(UI.cMain, "🧊 Freeze Self", "SelfFreeze", 15); UI.fakeInvisBtn = mkRow(UI.cMain, "👻 Toggle Fake Invis", "FakeInvis", 16); UI.fakeInvisBox = mkInp(UI.cMain, "Invis Offset (Def: 7)", 17); UI.fakeInvisBox.Text = "7"
+UI.antiFlingBtn = mkRow(UI.cMain, "🛡️ Toggle Anti-Fling", "AntiFling", 18); UI.bypassAcBtn = mkRow(UI.cMain, "🪝 Bypass Walk/Jump AC", "BypassAC", 19)
+mkLbl(UI.cMain, "─── Camera Mods ───", 20); UI.fovBox = mkInp(UI.cMain, "Field of View (Def: 70)", 21); UI.fovBox.Text = "70"; mkPre(UI.cMain, "FOV:", {70, 90, 120}, UI.fovBox, 22); UI.fovBtn = mkRow(UI.cMain, "👁️ Toggle Force FOV", "FOV", 23); UI.zoomBtn = mkRow(UI.cMain, "🔍 Unlock Max Zoom", "MaxZoom", 24)
+UI.saveCfgBtn = mkBtn(UI.cMain, "💾 Save Config", Color3.fromRGB(40,100,60), 98)
+UI.safeExitBtn = mkBtn(UI.cMain, "🚪 Safe Exit (Chống Ban)", T.Troll, 99)
 
 UI.tpBox = mkInp(UI.cTP, "Player Name (ex: rob...)", 1); local _, _, tpRefresh = mkList(UI.cTP, UI.tpBox, 2); UI.tpRefreshBtn = mkBtn(UI.cTP, "🔄 Refresh Player List", T.ElemHover, 3)
 UI.tpInstant = mkBtn(UI.cTP, "⚡ Instant TP (Theo Tên)", Color3.fromRGB(80,40,150), 4); UI.tpDash = mkBtn(UI.cTP, "☄️ Dash TP (Theo Tên)", Color3.fromRGB(200,90,40), 5)
@@ -236,15 +161,17 @@ UI.emoteBtns = {}; for i, n in ipairs({"wave","point","dance","dance2","dance3",
 mkLbl(UI.cTroll, "Target Player:", 1); UI.trollBox = mkInp(UI.cTroll, "Player Name (ex: rob...)", 2); local _, _, refreshPlayerList = mkList(UI.cTroll, UI.trollBox, 3); UI.refreshBtn = mkBtn(UI.cTroll, "🔄 Refresh Player List", T.ElemHover, 4)
 Players.PlayerAdded:Connect(function() task.wait(0.1); refreshPlayerList(); tpRefresh() end); Players.PlayerRemoving:Connect(function() task.wait(0.1); refreshPlayerList(); tpRefresh() end); refreshPlayerList(); tpRefresh()
 
-mkLbl(UI.cTroll, "─── Freeze & Fling ──────────", 5); UI.freezeBtn = mkRow(UI.cTroll, "🧊 Freeze Player", "Freeze", 6); UI.unfrzBtn = mkBtn(UI.cTroll, "🔥 Unfreeze Player", Color3.fromRGB(160,70,20), 7); UI.modernFlingBtn = mkBtn(UI.cTroll, "⚙️ Modern Fling: OFF", Color3.fromRGB(60,60,80), 8); UI.flingBtn = mkBtn(UI.cTroll, "💥 Fling Player", Color3.fromRGB(180,30,50), 9); UI.touchFlingBtn = mkBtn(UI.cTroll, "👆 Touch Fling (Toggle)", Color3.fromRGB(160,50,10), 10)
-mkLbl(UI.cTroll, "─── NaN Fling ───────────────", 11); UI.nanModeBtn = mkBtn(UI.cTroll, "Mode: Area (Gần mình)", Color3.fromRGB(50,50,80), 12); UI.nanFlingBtn = mkBtn(UI.cTroll, "☠️ NaN Fling (Toggle)", Color3.fromRGB(80,0,0), 13)
-mkLbl(UI.cTroll, "─── Welder ──────────────────", 14)
+mkLbl(UI.cTroll, "─── Freeze & Fling ──────────", 5); UI.freezeBtn = mkRow(UI.cTroll, "🧊 Freeze Player", "Freeze", 6); UI.unfrzBtn = mkBtn(UI.cTroll, "🔥 Unfreeze Player", Color3.fromRGB(160,70,20), 7)
+UI.spinFlingV2Btn = mkBtn(UI.cTroll, "🌪️ FE Spin Fling v2", Color3.fromRGB(150,40,150), 8)
+UI.modernFlingBtn = mkBtn(UI.cTroll, "⚙️ Modern Fling: OFF", Color3.fromRGB(60,60,80), 9); UI.flingBtn = mkBtn(UI.cTroll, "💥 Classic Fling Player", Color3.fromRGB(180,30,50), 10); UI.touchFlingBtn = mkBtn(UI.cTroll, "👆 Touch Fling (Toggle)", Color3.fromRGB(160,50,10), 11)
+mkLbl(UI.cTroll, "─── NaN Fling ───────────────", 12); UI.nanModeBtn = mkBtn(UI.cTroll, "Mode: Area (Gần mình)", Color3.fromRGB(50,50,80), 13); UI.nanFlingBtn = mkBtn(UI.cTroll, "☠️ NaN Fling (Toggle)", Color3.fromRGB(80,0,0), 14)
+mkLbl(UI.cTroll, "─── Welder ──────────────────", 15)
 local function mkPF(ord) local f = Instance.new("Frame", UI.cTroll); f.Size, f.BackgroundTransparency, f.LayoutOrder = UDim2.new(0.9, 0, 0, 30), 1, ord; local l = Instance.new("UIListLayout", f); l.FillDirection, l.Padding, l.SortOrder = Enum.FillDirection.Horizontal, UDim.new(0, 4), Enum.SortOrder.LayoutOrder; return f end
 local function mkPB(p, txt, ord) local b = Instance.new("TextButton", p); b.Size, b.BackgroundColor3, b.TextColor3, b.Font, b.TextSize, b.Text, b.LayoutOrder = UDim2.new(0, 60, 1, 0), Color3.fromRGB(40,40,60), T.TextMain, Enum.Font.GothamBold, 11, txt, ord; Instance.new("UICorner", b).CornerRadius = UDim.new(0, 4); return b end
-local wF1 = mkPF(15); UI.weldBangBtn = mkPB(wF1,"💋 Bang",1); UI.weldStandBtn = mkPB(wF1,"🧍 Stand",2); UI.weldAttackBtn = mkPB(wF1,"⚔️ Attack",3); UI.weldHeadBtn = mkPB(wF1,"👑 Head",4)
-local wF2 = mkPF(16); UI.weldBackBtn = mkPB(wF2,"🎒 Back",1); UI.weldCarpetBtn = mkPB(wF2,"🟫 Carpet",2); UI.weldBehindBtn = mkPB(wF2,"🫷 Behind",3); UI.weldCustomBtn = mkPB(wF2,"⚙️ Custom",4)
-local wF3 = mkPF(17); UI.weldPushBtn = mkPB(wF3,"👊 Push",1); UI.weldUnweldBtn = mkPB(wF3,"❌ Unweld",2); UI.weldPushBtn.Size, UI.weldUnweldBtn.Size, UI.weldUnweldBtn.BackgroundColor3 = UDim2.new(0, 90, 1, 0), UDim2.new(0, 90, 1, 0), Color3.fromRGB(80,20,20)
-mkLbl(UI.cTroll, "─── Misc ────────────────────", 18); UI.spinBtn = mkBtn(UI.cTroll, "🌀 Spin Player (Toggle)", Color3.fromRGB(100,20,140), 19); UI.followBtn = mkBtn(UI.cTroll, "👁 Follow Player (Toggle)", Color3.fromRGB(20,120,80), 20)
+local wF1 = mkPF(16); UI.weldBangBtn = mkPB(wF1,"💋 Bang",1); UI.weldStandBtn = mkPB(wF1,"🧍 Stand",2); UI.weldAttackBtn = mkPB(wF1,"⚔️ Attack",3); UI.weldHeadBtn = mkPB(wF1,"👑 Head",4)
+local wF2 = mkPF(17); UI.weldBackBtn = mkPB(wF2,"🎒 Back",1); UI.weldCarpetBtn = mkPB(wF2,"🟫 Carpet",2); UI.weldBehindBtn = mkPB(wF2,"🫷 Behind",3); UI.weldCustomBtn = mkPB(wF2,"⚙️ Custom",4)
+local wF3 = mkPF(18); UI.weldPushBtn = mkPB(wF3,"👊 Push",1); UI.weldUnweldBtn = mkPB(wF3,"❌ Unweld",2); UI.weldPushBtn.Size, UI.weldUnweldBtn.Size, UI.weldUnweldBtn.BackgroundColor3 = UDim2.new(0, 90, 1, 0), UDim2.new(0, 90, 1, 0), Color3.fromRGB(80,20,20)
+mkLbl(UI.cTroll, "─── Misc ────────────────────", 19); UI.spinBtn = mkBtn(UI.cTroll, "🌀 Spin Player (Toggle)", Color3.fromRGB(100,20,140), 20); UI.followBtn = mkBtn(UI.cTroll, "👁 Follow Player (Toggle)", Color3.fromRGB(20,120,80), 21)
 
 local tabs = {{btn = UI.tabMain, c = UI.cMain, x = 0}, {btn = UI.tabTP, c = UI.cTP, x = 0.25}, {btn = UI.tabEmotes, c = UI.cEmotes, x = 0.50}, {btn = UI.tabTroll, c = UI.cTroll, x = 0.75}}
 local function switchTab(ab, ac, ax) for _,t in ipairs(tabs) do t.c.Visible = false; t.btn.BackgroundTransparency = 1; t.btn.TextColor3 = (t.btn == UI.tabTroll) and Color3.fromRGB(180,50,65) or T.TextDim; t.btn.Font = Enum.Font.GothamSemibold end; ac.Visible = true; ab.TextColor3 = (ab == UI.tabTroll) and T.Troll or T.TextMain; ab.Font = Enum.Font.GothamBold; tabInd.Position, tabInd.BackgroundColor3 = UDim2.new(ax, 5, 1, -2), (ab == UI.tabTroll) and T.Troll or T.AccentON end
@@ -259,6 +186,78 @@ local function FindPlayer(pt) if not pt or pt == "" then return nil end; local l
 local function LoadConfig() pcall(function() if not isfile or not isfile(ConfigName) then return end; local raw = readfile(ConfigName); if not raw or raw == "" then return end; local s, cfg = pcall(function() return HttpService:JSONDecode(raw) end); if s and cfg then if cfg.Keybinds then for k, v in pairs(cfg.Keybinds) do if keybinds[k] then pcall(function() keybinds[k] = Enum.KeyCode[v]; if updateBindTexts[k] then updateBindTexts[k]() end end) end end end; if cfg.WalkSpeed then UI.walkBox.Text = cfg.WalkSpeed end; if cfg.JumpPower then UI.jumpBox.Text = cfg.JumpPower end; if cfg.FlySpeed then UI.flySpeedBox.Text = cfg.FlySpeed end; if cfg.MouseTPSpeed then UI.mouseTpSpeedBox.Text = cfg.MouseTPSpeed end; if cfg.FakeInvisOffset then UI.fakeInvisBox.Text = cfg.FakeInvisOffset end; if cfg.FOVValue then UI.fovBox.Text = cfg.FOVValue end end end) end
 UI.saveCfgBtn.MouseButton1Click:Connect(function() local ok, err = pcall(function() if not writefile then error("No writefile") end; local cfg = {Keybinds = {}, WalkSpeed = UI.walkBox.Text, JumpPower = UI.jumpBox.Text, FlySpeed = UI.flySpeedBox.Text, MouseTPSpeed = UI.mouseTpSpeedBox.Text, FakeInvisOffset = UI.fakeInvisBox.Text, FOVValue = UI.fovBox.Text}; for k, v in pairs(keybinds) do cfg.Keybinds[k] = v.Name end; writefile(ConfigName, HttpService:JSONEncode(cfg)) end); UI.saveCfgBtn.Text = ok and "✅ Saved!" or "❌ Lỗi"; task.delay(1.5, function() UI.saveCfgBtn.Text = "💾 Save Config" end) end); LoadConfig()
 
+-- OPTION: ANTI-LAGBACK
+local function ToggleAntiLagback()
+    S.isAntiLagback = not S.isAntiLagback
+    setBtn(UI.antiLagbackBtn, S.isAntiLagback)
+    if S.isAntiLagback then
+        local hrp = player.Character and player.Character:FindFirstChild("HumanoidRootPart")
+        S.lastPos = hrp and hrp.Position or Vector3.zero
+        track("antiLagback", RunService.Heartbeat:Connect(function()
+            pcall(function()
+                local h = player.Character.HumanoidRootPart
+                local cPos = h.Position
+                if S.lastPos and not S.isFlying and not S.isSpinFlingV2 then
+                    local dist = (cPos - S.lastPos).Magnitude
+                    if dist > 20 then
+                        h.CFrame = CFrame.new(S.lastPos) -- Cưỡng chế về vị trí an toàn trước đó
+                    else
+                        S.lastPos = cPos
+                    end
+                else
+                    S.lastPos = cPos
+                end
+            end)
+        end))
+    else
+        untrack("antiLagback")
+        S.lastPos = nil
+    end
+end
+UI.antiLagbackBtn.MouseButton1Click:Connect(ToggleAntiLagback)
+
+-- TÍNH NĂNG MỚI: FE SPIN FLING V2 (Tích hợp code của Đạt)
+local function ToggleSpinFlingV2()
+    local hrp = player.Character and player.Character:FindFirstChild("HumanoidRootPart")
+    if not hrp then return end
+    S.isSpinFlingV2 = not S.isSpinFlingV2
+    
+    if S.isSpinFlingV2 then
+        UI.spinFlingV2Btn.BackgroundColor3, UI.spinFlingV2Btn.Text = T.Troll, "⏹ Stop Spin Fling v2"
+        -- Tăng độ ma sát, tạo quán tính lớn
+        hrp.CustomPhysicalProperties = PhysicalProperties.new(0.7, 0, 0, 1, 1)
+        hrp.Anchored = false
+        
+        track("spinFlingV2", RunService.Heartbeat:Connect(function()
+            pcall(function()
+                local char = player.Character
+                if char and char:FindFirstChild("HumanoidRootPart") then
+                    char.HumanoidRootPart.AssemblyAngularVelocity = Vector3.new(0, 122434, 0)
+                end
+            end)
+        end))
+    else
+        untrack("spinFlingV2")
+        UI.spinFlingV2Btn.BackgroundColor3, UI.spinFlingV2Btn.Text = Color3.fromRGB(150, 40, 150), "🌪️ FE Spin Fling v2"
+        pcall(function()
+            player.Character.HumanoidRootPart.CustomPhysicalProperties = nil
+            player.Character.HumanoidRootPart.AssemblyAngularVelocity = Vector3.zero
+        end)
+    end
+end
+UI.spinFlingV2Btn.MouseButton1Click:Connect(ToggleSpinFlingV2)
+
+-- SAFE EXIT (CHỐNG BAN DO BACKLOG)
+UI.safeExitBtn.MouseButton1Click:Connect(function()
+    pcall(function()
+        UI.safeExitBtn.Text = "🚪 Đang ngắt kết nối an toàn..."
+        local hrp = player.Character and player.Character:FindFirstChild("HumanoidRootPart")
+        if hrp then hrp.Anchored = true end
+        task.wait(1.5)
+        game:Shutdown() -- Ngắt thẳng trước khi Adonis kịp nhả báo cáo
+    end)
+end)
+
 UI.fovBtn.MouseButton1Click:Connect(function() S.isFOV = not S.isFOV; setBtn(UI.fovBtn, S.isFOV); if S.isFOV then track("fov", RunService.RenderStepped:Connect(function() camera.FieldOfView = tonumber(UI.fovBox.Text) or 70 end)) else untrack("fov"); camera.FieldOfView = 70 end end)
 UI.zoomBtn.MouseButton1Click:Connect(function() S.isZoom = not S.isZoom; setBtn(UI.zoomBtn, S.isZoom); if S.isZoom then track("zoom", RunService.RenderStepped:Connect(function() player.CameraMaxZoomDistance = 100000 end)) else untrack("zoom"); player.CameraMaxZoomDistance = 128 end end)
 
@@ -270,154 +269,74 @@ local function StopMouseTP() untrack("mTP"); S.mouseTpMode = nil; UI.mouseTpBtn.
 local function StartMouseTP(mode, btn, acolor, atext) if S.mouseTpMode == mode then StopMouseTP(); return end; StopMouseTP(); S.mouseTpMode = mode; btn.BackgroundColor3, btn.TextColor3, btn.Text = acolor, Color3.fromRGB(20,20,20), atext; track("mTP", UserInputService.InputBegan:Connect(function(input, gp) if gp then return end; if input.UserInputType == Enum.UserInputType.MouseButton1 and (UserInputService:IsKeyDown(Enum.KeyCode.LeftControl) or UserInputService:IsKeyDown(Enum.KeyCode.RightControl)) then local hrp = player.Character and player.Character:FindFirstChild("HumanoidRootPart"); if hrp and mouse.Hit then local hp = mouse.Hit; local targetCFrame = CFrame.new(hp.X, hp.Y + 3, hp.Z, select(4, hrp.CFrame:components())); local speed = tonumber(UI.mouseTpSpeedBox.Text) or 150; if speed <= 0 then speed = 150 end; if mode == "Tween" then TweenService:Create(hrp, TweenInfo.new((hrp.Position - hp.Position).Magnitude / speed, Enum.EasingStyle.Linear), {CFrame = targetCFrame}):Play() elseif mode == "Step" then task.spawn(function() local startPos = hrp.Position; local steps = math.max(1, math.floor(((startPos - hp.Position).Magnitude / speed) / 0.05)); for i = 1, steps do if not player.Character or not player.Character:FindFirstChild("HumanoidRootPart") then break end; player.Character.HumanoidRootPart.CFrame = CFrame.new(startPos:Lerp(targetCFrame.Position, i/steps), targetCFrame.Position + camera.CFrame.LookVector); task.wait(0.05) end end) elseif mode == "Pivot" then player.Character:PivotTo(targetCFrame) end end end end)) end
 UI.mouseTpBtn.MouseButton1Click:Connect(function() StartMouseTP("Tween", UI.mouseTpBtn, T.AccentON, "🖱️ Đang bật: Tween Mode") end); UI.mouseTpStepBtn.MouseButton1Click:Connect(function() StartMouseTP("Step", UI.mouseTpStepBtn, T.Warn, "🖱️ Đang bật: Step Mode") end); UI.mouseTpPivotBtn.MouseButton1Click:Connect(function() StartMouseTP("Pivot", UI.mouseTpPivotBtn, Color3.fromRGB(180,80,255), "🖱️ Đang bật: Pivot Mode") end)
 
--- [FIX FLY]
 local flyAttach, flyLV
-UI.flyModeBtn.MouseButton1Click:Connect(function() 
-    S.curFlyMode = S.curFlyMode == "Camera" and "Hover" or "Camera"
-    UI.flyModeBtn.Text = "Fly Mode: " .. (S.curFlyMode == "Camera" and "Camera" or "Hover (Space/Ctrl)") 
-end)
-
-local function StopFly() 
-    untrack("fly")
-    if flyAttach then flyAttach:Destroy(); flyAttach = nil; flyLV = nil end
-    pcall(function() player.Character.Humanoid:ChangeState(Enum.HumanoidStateType.GettingUp) end) 
-end
-
-local function ToggleFly() 
-    local hrp = player.Character and player.Character:FindFirstChild("HumanoidRootPart")
-    local hum = player.Character and player.Character:FindFirstChild("Humanoid")
-    if not hrp or not hum then return end
-    
-    S.isFlying = not S.isFlying
-    setBtn(UI.flyBtn, S.isFlying)
-    if not S.isFlying then StopFly(); return end
-    
-    hum:ChangeState(Enum.HumanoidStateType.Physics)
-    flyAttach = Instance.new("Attachment", hrp)
-    flyLV = Instance.new("LinearVelocity", flyAttach)
-    
-    flyLV.Attachment0 = flyAttach
-    flyLV.MaxForce = 9e9
-    flyLV.VectorVelocity = Vector3.zero
-    flyLV.RelativeTo = Enum.ActuatorRelativeTo.World
-    
-    local smooth = Vector3.zero
-    track("fly", RunService.RenderStepped:Connect(function(dt) 
-        pcall(function() 
-            local h2 = player.Character.HumanoidRootPart
-            local hm2 = player.Character.Humanoid
-            if not h2 or not hm2 or not flyAttach then 
-                StopFly(); S.isFlying = false; setBtn(UI.flyBtn, false); return 
-            end
-            
-            hm2:ChangeState(Enum.HumanoidStateType.Physics)
-            local dir = Vector3.zero
-            
-            if S.curFlyMode == "Camera" then 
-                if UserInputService:IsKeyDown(Enum.KeyCode.W) then dir += camera.CFrame.LookVector end
-                if UserInputService:IsKeyDown(Enum.KeyCode.S) then dir -= camera.CFrame.LookVector end
-                if UserInputService:IsKeyDown(Enum.KeyCode.A) then dir -= camera.CFrame.RightVector end
-                if UserInputService:IsKeyDown(Enum.KeyCode.D) then dir += camera.CFrame.RightVector end 
-            else 
-                local fwd = Vector3.new(camera.CFrame.LookVector.X, 0, camera.CFrame.LookVector.Z)
-                local rgt = Vector3.new(camera.CFrame.RightVector.X, 0, camera.CFrame.RightVector.Z)
-                fwd = fwd.Magnitude > 0.01 and fwd.Unit or Vector3.zero
-                rgt = rgt.Magnitude > 0.01 and rgt.Unit or Vector3.zero
-                
-                if UserInputService:IsKeyDown(Enum.KeyCode.W) then dir += fwd end
-                if UserInputService:IsKeyDown(Enum.KeyCode.S) then dir -= fwd end
-                if UserInputService:IsKeyDown(Enum.KeyCode.A) then dir -= rgt end
-                if UserInputService:IsKeyDown(Enum.KeyCode.D) then dir += rgt end
-                if UserInputService:IsKeyDown(Enum.KeyCode.Space) then dir += Vector3.yAxis end
-                if UserInputService:IsKeyDown(Enum.KeyCode.LeftControl) then dir -= Vector3.yAxis end 
-            end
-            
-            local spd = tonumber(UI.flySpeedBox.Text) or 50
-            smooth = smooth:Lerp(dir.Magnitude > 0 and dir.Unit * spd or Vector3.zero, math.min(1, dt*10))
-            flyLV.VectorVelocity = smooth
-            
-            local flat = Vector3.new(camera.CFrame.LookVector.X, 0, camera.CFrame.LookVector.Z)
-            if flat.Magnitude > 0.01 then 
-                h2.CFrame = CFrame.new(h2.Position, h2.Position + flat) 
-            end 
-        end) 
-    end)) 
-end
--- [END FIX FLY]
+UI.flyModeBtn.MouseButton1Click:Connect(function() S.curFlyMode = S.curFlyMode == "Camera" and "Hover" or "Camera"; UI.flyModeBtn.Text = "Fly Mode: " .. (S.curFlyMode == "Camera" and "Camera" or "Hover (Space/Ctrl)") end)
+local function StopFly() untrack("fly"); if flyAttach then flyAttach:Destroy(); flyAttach = nil; flyLV = nil end; pcall(function() player.Character.Humanoid:ChangeState(Enum.HumanoidStateType.GettingUp) end) end
+local function ToggleFly() local hrp = player.Character and player.Character:FindFirstChild("HumanoidRootPart"); local hum = player.Character and player.Character:FindFirstChild("Humanoid"); if not hrp or not hum then return end; S.isFlying = not S.isFlying; setBtn(UI.flyBtn, S.isFlying); if not S.isFlying then StopFly(); return end; hum:ChangeState(Enum.HumanoidStateType.Physics); flyAttach = Instance.new("Attachment", hrp); flyLV = Instance.new("LinearVelocity", flyAttach); flyLV.Attachment0 = flyAttach; flyLV.MaxForce = 9e9; flyLV.VectorVelocity = Vector3.zero; flyLV.RelativeTo = Enum.ActuatorRelativeTo.World; local smooth = Vector3.zero; track("fly", RunService.RenderStepped:Connect(function(dt) pcall(function() local h2 = player.Character.HumanoidRootPart; local hm2 = player.Character.Humanoid; if not h2 or not hm2 or not flyAttach then StopFly(); S.isFlying = false; setBtn(UI.flyBtn, false); return end; hm2:ChangeState(Enum.HumanoidStateType.Physics); local dir = Vector3.zero; if S.curFlyMode == "Camera" then if UserInputService:IsKeyDown(Enum.KeyCode.W) then dir += camera.CFrame.LookVector end; if UserInputService:IsKeyDown(Enum.KeyCode.S) then dir -= camera.CFrame.LookVector end; if UserInputService:IsKeyDown(Enum.KeyCode.A) then dir -= camera.CFrame.RightVector end; if UserInputService:IsKeyDown(Enum.KeyCode.D) then dir += camera.CFrame.RightVector end else local fwd = Vector3.new(camera.CFrame.LookVector.X, 0, camera.CFrame.LookVector.Z); local rgt = Vector3.new(camera.CFrame.RightVector.X, 0, camera.CFrame.RightVector.Z); fwd = fwd.Magnitude > 0.01 and fwd.Unit or Vector3.zero; rgt = rgt.Magnitude > 0.01 and rgt.Unit or Vector3.zero; if UserInputService:IsKeyDown(Enum.KeyCode.W) then dir += fwd end; if UserInputService:IsKeyDown(Enum.KeyCode.S) then dir -= fwd end; if UserInputService:IsKeyDown(Enum.KeyCode.A) then dir -= rgt end; if UserInputService:IsKeyDown(Enum.KeyCode.D) then dir += rgt end; if UserInputService:IsKeyDown(Enum.KeyCode.Space) then dir += Vector3.yAxis end; if UserInputService:IsKeyDown(Enum.KeyCode.LeftControl) then dir -= Vector3.yAxis end end; local spd = tonumber(UI.flySpeedBox.Text) or 50; smooth = smooth:Lerp(dir.Magnitude > 0 and dir.Unit * spd or Vector3.zero, math.min(1, dt*10)); flyLV.VectorVelocity = smooth; local flat = Vector3.new(camera.CFrame.LookVector.X, 0, camera.CFrame.LookVector.Z); if flat.Magnitude > 0.01 then h2.CFrame = CFrame.new(h2.Position, h2.Position + flat) end end) end)) end
 
 local function applyWalk() pcall(function() player.Character.Humanoid.WalkSpeed = math.clamp(tonumber(UI.walkBox.Text) or 16, 0, 500) end) end
 local function ToggleWalkSpeed() S.isWalk = not S.isWalk; setBtn(UI.walkBtn, S.isWalk); if S.isWalk then applyWalk(); track("walk", RunService.Heartbeat:Connect(applyWalk)) else untrack("walk"); pcall(function() player.Character.Humanoid.WalkSpeed = 16 end) end end
 local function applyJump() pcall(function() player.Character.Humanoid.UseJumpPower = true; player.Character.Humanoid.JumpPower = math.clamp(tonumber(UI.jumpBox.Text) or 50, 0, 1000) end) end
 local function ToggleJumpPower() S.isJump = not S.isJump; setBtn(UI.jumpBtn, S.isJump); if S.isJump then applyJump(); track("jump", RunService.Heartbeat:Connect(applyJump)) else untrack("jump"); pcall(function() player.Character.Humanoid.UseJumpPower = true; player.Character.Humanoid.JumpPower = 50 end) end end
 local function ToggleInfJump() S.isInfJump = not S.isInfJump; setBtn(UI.infJumpBtn, S.isInfJump); if S.isInfJump then track("infJump", UserInputService.JumpRequest:Connect(function() pcall(function() player.Character.Humanoid:ChangeState(Enum.HumanoidStateType.Jumping) end) end)) else untrack("infJump") end end
-local nocParts = {}; local function ToggleNoclip() S.isNoclip = not S.isNoclip; setBtn(UI.noclipBtn, S.isNoclip); if S.isNoclip then nocParts = {}; pcall(function() for _,p in ipairs(player.Character:GetDescendants()) do if p:IsA("BasePart") then nocParts[#nocParts+1] = p end end end); track("noclip", RunService.Stepped:Connect(function() for _,p in ipairs(nocParts) do if p and p.Parent then p.CanCollide = false end end end)) else untrack("noclip"); task.spawn(function() local h = player.Character and player.Character:FindFirstChild("HumanoidRootPart"); if not h then for _,p in ipairs(nocParts) do if p and p.Parent then p.CanCollide = true end end; nocParts = {}; return end; local timeout = tick() + 2; repeat task.wait(0.05); local touching = h:GetTouchingParts(); local worldTouch = false; for _,tp in ipairs(touching) do if not tp:IsDescendantOf(player.Character) then worldTouch = true; break end end; if not worldTouch then break end until tick() > timeout; task.defer(function() for _,p in ipairs(nocParts) do if p and p.Parent then p.CanCollide = true end end; nocParts = {} end) end) end end
-
+-- [CƠ CHẾ NOCLIP V2 - DYNAMIC STEPPED]
+local function ToggleNoclip() 
+    S.isNoclip = not S.isNoclip
+    setBtn(UI.noclipBtn, S.isNoclip) 
+    
+    if S.isNoclip then 
+        -- Khi Bật: Liên tục tắt CanCollide mỗi frame trước khi engine tính toán vật lý
+        track("noclip", RunService.Stepped:Connect(function() 
+            local char = player.Character
+            if char then
+                for _, p in ipairs(char:GetDescendants()) do 
+                    if p:IsA("BasePart") and p.CanCollide then 
+                        p.CanCollide = false 
+                    end 
+                end 
+            end
+        end)) 
+    else 
+        -- Khi Tắt: Dừng vòng lặp và trả lại trạng thái vật lý bình thường
+        untrack("noclip") 
+        task.spawn(function() 
+            local char = player.Character
+            if char then
+                -- Trả lại CanCollide = true cho toàn bộ cơ thể
+                for _, p in ipairs(char:GetDescendants()) do 
+                    if p:IsA("BasePart") then 
+                        p.CanCollide = true 
+                    end 
+                end 
+                -- Lưu ý: HumanoidRootPart mặc định của Roblox luôn là false, ép nó thành false để không bị lỗi đi bộ
+                local hrp = char:FindFirstChild("HumanoidRootPart")
+                if hrp then hrp.CanCollide = false end
+            end 
+        end) 
+    end 
+end
 local espFolder = Instance.new("Folder", camera); espFolder.Name = randName(8)
 local function addESP(p) if p == player or not p.Character then return end; for _,h in ipairs(espFolder:GetChildren()) do if h.Name == p.Name then return end end; local hrp = p.Character:WaitForChild("HumanoidRootPart", 2); if hrp then local box = Instance.new("BoxHandleAdornment", espFolder); box.Name, box.Adornee, box.Size, box.AlwaysOnTop, box.Color3, box.Transparency, box.ZIndex = p.Name, hrp, Vector3.new(4, 5.5, 2), true, Color3.fromRGB(0,170,255), 0.65, 1; local bb = Instance.new("BillboardGui", espFolder); bb.Name, bb.Adornee, bb.Size, bb.StudsOffset, bb.AlwaysOnTop = p.Name.."_BB", hrp, UDim2.new(0, 100, 0, 30), Vector3.new(0, 3.5, 0), true; local lbl = Instance.new("TextLabel", bb); lbl.Size, lbl.BackgroundTransparency, lbl.Text, lbl.TextColor3, lbl.TextStrokeTransparency, lbl.Font, lbl.TextSize = UDim2.new(1, 0, 1, 0), 1, p.DisplayName, Color3.fromRGB(0, 200, 255), 0, Enum.Font.GothamBold, 13 end end
 local espCharConns = {}
 local function ToggleESP() S.isESP = not S.isESP; setBtn(UI.espBtn, S.isESP); if S.isESP then for _,p in ipairs(Players:GetPlayers()) do addESP(p) end; track("espAdd", Players.PlayerAdded:Connect(function(p) espCharConns[p] = p.CharacterAdded:Connect(function() task.wait(0.1); addESP(p) end); addESP(p) end)); track("espRem", Players.PlayerRemoving:Connect(function(p) for _,h in ipairs(espFolder:GetChildren()) do if h.Name == p.Name or h.Name == p.Name.."_BB" then h:Destroy() end end end)); for _,p in ipairs(Players:GetPlayers()) do if p ~= player then espCharConns[p] = p.CharacterAdded:Connect(function() task.wait(0.1); addESP(p) end) end end else espFolder:ClearAllChildren(); untrack("espAdd"); untrack("espRem"); for _,c in pairs(espCharConns) do c:Disconnect() end; espCharConns = {} end end
 
--- [FIX BYPASS AC THÔNG MINH - CẢNH BÁO VÀ ÉP BẬT]
 local oldIndex
 local bypassWarningGiven = false
-
 local function ToggleBypassAC() 
-    -- NẾU CÓ ADONIS, CHƯA BẬT BYPASS VÀ CHƯA CẢNH BÁO -> HIỆN CẢNH BÁO 3 GIÂY
     if AdonisFound and not S.isBypassAC and not bypassWarningGiven then
         bypassWarningGiven = true
         UI.bypassAcBtn.Text = "⚠️ CÓ ADONIS! Bấm lại để CỐ BẬT"
         UI.bypassAcBtn.BackgroundColor3 = T.Warn
         UI.bypassAcBtn.TextColor3 = Color3.fromRGB(20, 20, 20)
-        
-        task.delay(3, function()
-            if not S.isBypassAC then -- Nếu sau 3s chưa cố bấm bật thì reset lại nút
-                bypassWarningGiven = false
-                UI.bypassAcBtn.Text = "🪝 Bypass Walk/Jump AC"
-                UI.bypassAcBtn.BackgroundColor3 = T.ElemBG
-                UI.bypassAcBtn.TextColor3 = T.TextMain
-            end
-        end)
+        task.delay(3, function() if not S.isBypassAC then bypassWarningGiven = false; UI.bypassAcBtn.Text = "🪝 Bypass Walk/Jump AC"; UI.bypassAcBtn.BackgroundColor3 = T.ElemBG; UI.bypassAcBtn.TextColor3 = T.TextMain end end)
         return
     end
-
-    -- Check Executor có hỗ trợ hook không
-    if not hookmetamethod then 
-        UI.bypassAcBtn.Text = "❌ Executor Not Supported"
-        task.wait(2)
-        UI.bypassAcBtn.Text = "🪝 Bypass Walk/Jump AC"
-        return 
-    end
-    
-    -- THỰC THI BẬT/TẮT (NẾU ĐÃ QUA CẢNH BÁO HOẶC KHÔNG CÓ ADONIS)
+    if not hookmetamethod then UI.bypassAcBtn.Text = "❌ Not Supported"; task.wait(2); UI.bypassAcBtn.Text = "🪝 Bypass Walk/Jump AC"; return end
     S.isBypassAC = not S.isBypassAC
-    
     if S.isBypassAC then
-        -- Khi bật lên
-        if AdonisFound then
-            UI.bypassAcBtn.Text = "☠️ Đang ép Bypass (Nguy hiểm)"
-            UI.bypassAcBtn.BackgroundColor3 = T.Troll -- Đổi sang màu đỏ cảnh báo
-            UI.bypassAcBtn.TextColor3 = Color3.fromRGB(20, 20, 20)
-        else
-            setBtn(UI.bypassAcBtn, true) -- Bật bình thường (Xanh dương)
-            UI.bypassAcBtn.Text = "🪝 Bypass Walk/Jump AC: ON"
-        end
-        
-        -- Ép Hook Metamethod
-        if not oldIndex then 
-            oldIndex = hookmetamethod(game, "__index", newcclosure(function(t, k) 
-                if not checkcaller() and S.isBypassAC and t:IsA("Humanoid") then 
-                    if k == "WalkSpeed" then return 16 end
-                    if k == "JumpPower" then return 50 end 
-                end
-                return oldIndex(t, k) 
-            end)) 
-        end 
-    else
-        -- Khi tắt đi
-        bypassWarningGiven = false
-        setBtn(UI.bypassAcBtn, false)
-        UI.bypassAcBtn.Text = "🪝 Bypass Walk/Jump AC"
-    end
+        if AdonisFound then UI.bypassAcBtn.Text = "☠️ Đang ép Bypass"; UI.bypassAcBtn.BackgroundColor3 = T.Troll; UI.bypassAcBtn.TextColor3 = Color3.fromRGB(20, 20, 20) else setBtn(UI.bypassAcBtn, true); UI.bypassAcBtn.Text = "🪝 Bypass AC: ON" end
+        if not oldIndex then oldIndex = hookmetamethod(game, "__index", newcclosure(function(t, k) if not checkcaller() and S.isBypassAC and typeof(t) == "Instance" and t:IsA("Humanoid") then if k == "WalkSpeed" then return 16 end; if k == "JumpPower" then return 50 end; if k == "HipHeight" then return t.RigType == Enum.HumanoidRigType.R15 and 2 or 0 end end; return oldIndex(t, k) end)) end 
+    else bypassWarningGiven = false; setBtn(UI.bypassAcBtn, false); UI.bypassAcBtn.Text = "🪝 Bypass Walk/Jump AC" end
 end
 UI.bypassAcBtn.MouseButton1Click:Connect(ToggleBypassAC)
 
@@ -438,11 +357,11 @@ UI.modernFlingBtn.MouseButton1Click:Connect(function() S.isModernFling = not S.i
 
 local flingOldPos, FPDH = nil, workspace.FallenPartsDestroyHeight
 local function doFling(targetPlayer) local myChar = player.Character; local myHum = myChar and myChar:FindFirstChildOfClass("Humanoid"); local myHrp = myHum and myHum.RootPart; if not myChar or not myHum or not myHrp then return end; local tChar = targetPlayer.Character; if not tChar then return end; local tHum = tChar:FindFirstChildOfClass("Humanoid"); local tHrp = tHum and tHum.RootPart; local tHead = tChar:FindFirstChild("Head"); local acc = tChar:FindFirstChildOfClass("Accessory"); local handle = acc and acc:FindFirstChild("Handle"); if myHrp.Velocity.Magnitude < 50 then flingOldPos = myHrp.CFrame end; if tHum and tHum.Sit then return end; if not tChar:FindFirstChildWhichIsA("BasePart") then return end; local mover = nil; if S.isModernFling then mover = Instance.new("Attachment", myHrp); local lv = Instance.new("LinearVelocity", mover); lv.Attachment0, lv.MaxForce, lv.VectorVelocity = mover, math.huge, Vector3.new(9e7, 9e8, 9e7); local av = Instance.new("AngularVelocity", mover); av.Attachment0, av.MaxTorque, av.AngularVelocity = mover, math.huge, Vector3.new(9e8, 9e8, 9e8) else mover = Instance.new("BodyVelocity", myHrp); mover.Velocity, mover.MaxForce = Vector3.zero, Vector3.new(9e9, 9e9, 9e9) end; local function FPos(bp, p, a) myHrp.CFrame = CFrame.new(bp.Position) * p * a; myChar:PivotTo(myHrp.CFrame); if not S.isModernFling then myHrp.Velocity, myHrp.RotVelocity = Vector3.new(9e7, 9e8, 9e7), Vector3.new(9e8, 9e8, 9e8) end end; local dl, ag = tick() + 2, 0; workspace.FallenPartsDestroyHeight = 0/0; myHum:SetStateEnabled(Enum.HumanoidStateType.Seated, false); repeat if not myHrp or not tHum then break end; local tPart = tHrp or tHead or handle; if not tPart then break end; if tPart.Velocity.Magnitude < 50 then ag = ag + 100; local cf = CFrame.Angles(math.rad(ag), 0, 0); local mv = tHum.MoveDirection * tPart.Velocity.Magnitude / 1.25; FPos(tPart, CFrame.new(0, 1.5, 0) + mv, cf); task.wait(); FPos(tPart, CFrame.new(0, -1.5, 0) + mv, cf); task.wait() else local ws = tHum.WalkSpeed; FPos(tPart, CFrame.new(0, 1.5, ws), CFrame.Angles(math.rad(90), 0, 0)); task.wait(); FPos(tPart, CFrame.new(0, -1.5, -ws), CFrame.new()); task.wait() end until tick() > dl or not S.isFlingActive; mover:Destroy(); myHum:SetStateEnabled(Enum.HumanoidStateType.Seated, true); if flingOldPos then myHrp.CFrame = flingOldPos * CFrame.new(0, 0.5, 0); myChar:PivotTo(myHrp.CFrame); myHum:ChangeState(Enum.HumanoidStateType.GettingUp); task.wait() end; workspace.FallenPartsDestroyHeight = -500 end
-UI.flingBtn.MouseButton1Click:Connect(function() if S.isFlingActive then S.isFlingActive = false; UI.flingBtn.Text, UI.flingBtn.BackgroundColor3 = "💥 Fling Player", Color3.fromRGB(180,30,50); return end; local t = FindPlayer(UI.trollBox.Text); if not t then return end; S.isFlingActive = true; UI.flingBtn.Text, UI.flingBtn.BackgroundColor3 = "⏹ Stop Fling", Color3.fromRGB(80,80,80); task.spawn(function() while S.isFlingActive do pcall(doFling, t); task.wait(0.1) end; UI.flingBtn.Text, UI.flingBtn.BackgroundColor3 = "💥 Fling Player", Color3.fromRGB(180,30,50) end) end)
+UI.flingBtn.MouseButton1Click:Connect(function() if S.isFlingActive then S.isFlingActive = false; UI.flingBtn.Text, UI.flingBtn.BackgroundColor3 = "💥 Classic Fling Player", Color3.fromRGB(180,30,50); return end; local t = FindPlayer(UI.trollBox.Text); if not t then return end; S.isFlingActive = true; UI.flingBtn.Text, UI.flingBtn.BackgroundColor3 = "⏹ Stop Fling", Color3.fromRGB(80,80,80); task.spawn(function() while S.isFlingActive do pcall(doFling, t); task.wait(0.1) end; UI.flingBtn.Text, UI.flingBtn.BackgroundColor3 = "💥 Classic Fling Player", Color3.fromRGB(180,30,50) end) end)
 UI.touchFlingBtn.MouseButton1Click:Connect(function() S.isTouchFling = not S.isTouchFling; if S.isTouchFling then UI.touchFlingBtn.BackgroundColor3, UI.touchFlingBtn.Text = T.Troll, "👆 Touch Fling: ON"; local ml = 0.1; track("tFling", RunService.Heartbeat:Connect(function() pcall(function() local h = player.Character.HumanoidRootPart; local v = h.Velocity; h.Velocity = v * 10000 + Vector3.new(0, 10000, 0); RunService.RenderStepped:Wait(); h.Velocity = v; RunService.Stepped:Wait(); h.Velocity = v + Vector3.new(0, ml, 0); ml = -ml end) end)) else untrack("tFling"); UI.touchFlingBtn.BackgroundColor3, UI.touchFlingBtn.Text = Color3.fromRGB(160,50,10), "👆 Touch Fling (Toggle)" end end)
 
 local hasSHP = (typeof(sethiddenproperty) == "function")
-UI.nanModeBtn.MouseButton1Click:Connect(function() S.nanMode = S.nanMode == "area" and "target" or "area"; UI.nanModeBtn.Text = S.nanMode == "area" and "Mode: Area (gần mình)" or "Mode: Target (".. (UI.trollBox.Text ~= "" and UI.trollBox.Text or "chọn player") ..")"; UI.nanModeBtn.BackgroundColor3 = S.nanMode == "area" and Color3.fromRGB(50,50,80) or Color3.fromRGB(80,50,50) end)
+UI.nanModeBtn.MouseButton1Click:Connect(function() S.nanMode = S.nanMode == "area" and "target" or "area"; UI.nanModeBtn.Text = S.nanMode == "area" and "Mode: Area (Gần mình)" or "Mode: Target (".. (UI.trollBox.Text ~= "" and UI.trollBox.Text or "chọn player") ..")"; UI.nanModeBtn.BackgroundColor3 = S.nanMode == "area" and Color3.fromRGB(50,50,80) or Color3.fromRGB(80,50,50) end)
 local NAN_VEC = Vector3.new(0/0, 0/0, 0/0)
 local function applyNanFling(tHrp, myHrp, myHum) myHrp.CFrame, myHrp.AssemblyLinearVelocity, myHrp.AssemblyAngularVelocity = tHrp.CFrame, NAN_VEC, NAN_VEC; pcall(function() myHum.PlatformStand = true; myHum:Move(NAN_VEC) end); if hasSHP then pcall(function() sethiddenproperty(myHrp, "PhysicsRepRootPart", tHrp) end) end end
 UI.nanFlingBtn.MouseButton1Click:Connect(function() S.isNanFling = not S.isNanFling; if S.isNanFling then if S.nanMode == "target" then local t = FindPlayer(UI.trollBox.Text); if not (t and t.Character and t.Character:FindFirstChild("HumanoidRootPart")) then UI.trollBox.Text = "Not found!"; task.wait(1); UI.trollBox.Text = ""; S.isNanFling = false; return end; S.nanFlingTarget = t end; UI.nanFlingBtn.BackgroundColor3, UI.nanFlingBtn.TextColor3, UI.nanFlingBtn.Text = T.Troll, Color3.fromRGB(20,20,20), "☠️ NaN Fling: ON" .. (hasSHP and " [SHP]" or ""); S.nanFlingConn = track("nanFling", RunService.Heartbeat:Connect(function() local myChar = player.Character; local myHum, myHrp = myChar and myChar:FindFirstChildOfClass("Humanoid"), myChar and myChar:FindFirstChild("HumanoidRootPart"); if not myHrp then return end; if S.nanMode == "target" then if not (S.nanFlingTarget and S.nanFlingTarget.Character) then S.isNanFling = false; untrack("nanFling"); S.nanFlingConn = nil; UI.nanFlingBtn.BackgroundColor3, UI.nanFlingBtn.TextColor3, UI.nanFlingBtn.Text = Color3.fromRGB(80,0,0), T.TextMain, "☠️ NaN Fling (Toggle)"; pcall(function() myHum.PlatformStand = false end); return end; local tHrp = S.nanFlingTarget.Character:FindFirstChild("HumanoidRootPart"); if tHrp then applyNanFling(tHrp, myHrp, myHum) end else for _, p in ipairs(Players:GetPlayers()) do if p ~= player and p.Character then local tHrp = p.Character:FindFirstChild("HumanoidRootPart"); if tHrp and (myHrp.Position - tHrp.Position).Magnitude <= 15 then applyNanFling(tHrp, myHrp, myHum) end end end end end)) else untrack("nanFling"); S.nanFlingConn, S.nanFlingTarget = nil, nil; pcall(function() player.Character.Humanoid.PlatformStand = false end); UI.nanFlingBtn.BackgroundColor3, UI.nanFlingBtn.TextColor3, UI.nanFlingBtn.Text = Color3.fromRGB(80,0,0), T.TextMain, "☠️ NaN Fling (Toggle)" end end)
@@ -463,8 +382,8 @@ UI.spinBtn.MouseButton1Click:Connect(function() S.isSpinning = not S.isSpinning;
 UI.followBtn.MouseButton1Click:Connect(function() S.isFollowing = not S.isFollowing; if S.isFollowing then followTarget = FindPlayer(UI.trollBox.Text); if followTarget then UI.followBtn.BackgroundColor3, UI.followBtn.Text = T.Troll, "👁 Stop Follow"; track("fol", RunService.Heartbeat:Connect(function() pcall(function() local mR, tR = player.Character.HumanoidRootPart, followTarget.Character.HumanoidRootPart; if (mR.Position - tR.Position).Magnitude > 8 then mR.CFrame = tR.CFrame * CFrame.new(2, 0, 3) end end) end)) else S.isFollowing = false end else untrack("fol"); UI.followBtn.BackgroundColor3, UI.followBtn.Text = Color3.fromRGB(20,120,80), "👁 Follow Player" end end)
 
 local function Panic() for l, _ in pairs(Connections) do untrack(l) end; if S.isFlying then StopFly(); setBtn(UI.flyBtn, false) end; pcall(function() local h = player.Character.Humanoid; h.WalkSpeed, h.UseJumpPower, h.JumpPower = 16, true, 50 end); setBtn(UI.walkBtn, false); setBtn(UI.jumpBtn, false); if S.isNoclip then ToggleNoclip() end; if S.isESP then ToggleESP() end; if S.isFakeInvis then ToggleFakeInvis() end; if S.mouseTpMode then StopMouseTP() end; if S.isAntiFling then ToggleAntiFling() end; if S.isFOV then ToggleFOV() end; if S.isZoom then ToggleZoom() end; stpW(); titleLbl.Text, titleLbl.TextColor3 = "⚠ PANIC RESET", T.Troll; task.delay(1.5, function() titleLbl.Text, titleLbl.TextColor3 = "LAI ADMIN", T.TextMain end) end
-track("input", UserInputService.InputBegan:Connect(function(i, gp) if S.listenAct then if i.UserInputType == Enum.UserInputType.Keyboard then if i.KeyCode == Enum.KeyCode.Escape then keybinds[S.listenAct] = Enum.KeyCode.Unknown else keybinds[S.listenAct] = i.KeyCode end; updateBindTexts[S.listenAct](); S.listenAct, S.listenBtn = nil, nil end return end; if gp then return end; if i.KeyCode == Enum.KeyCode.RightShift then Panic(); return end; if i.KeyCode == keybinds.Menu then S.isMenuOpen = not S.isMenuOpen; TweenService:Create(main, TweenInfo.new(0.35, Enum.EasingStyle.Quart, Enum.EasingDirection.Out), {Position = S.isMenuOpen and openPos or closedPos}):Play(); TweenService:Create(shadow, TweenInfo.new(0.35, Enum.EasingStyle.Quart, Enum.EasingDirection.Out), {Position = S.isMenuOpen and UDim2.new(0,14,0.5,-253) or UDim2.new(0,-326,0.5,-253)}):Play() end; local function tr(k, f) if k ~= Enum.KeyCode.Unknown and i.KeyCode == k then f() end end; tr(keybinds.Fly, ToggleFly); tr(keybinds.WalkSpeed, ToggleWalkSpeed); tr(keybinds.JumpPower, ToggleJumpPower); tr(keybinds.InfJump, ToggleInfJump); tr(keybinds.Noclip, ToggleNoclip); tr(keybinds.ESP, ToggleESP); tr(keybinds.SelfFreeze, ToggleSelfFreeze); tr(keybinds.FakeInvis, ToggleFakeInvis); tr(keybinds.AntiFling, ToggleAntiFling); tr(keybinds.BypassAC, ToggleBypassAC); tr(keybinds.FOV, ToggleFOV); tr(keybinds.MaxZoom, ToggleZoom); if keybinds.Freeze ~= Enum.KeyCode.Unknown and i.KeyCode == keybinds.Freeze then local t = FindPlayer(UI.trollBox.Text); if t and t.Character then untrack("frz"); frozenTarget, frozenCF = t, t.Character.HumanoidRootPart.CFrame; freezeConn = track("frz", RunService.Heartbeat:Connect(function() pcall(function() frozenTarget.Character.HumanoidRootPart.CFrame = frozenCF end) end)); UI.freezeBtn.Text = "🧊 Frozen: " .. t.Name end end end))
+track("input", UserInputService.InputBegan:Connect(function(i, gp) if S.listenAct then if i.UserInputType == Enum.UserInputType.Keyboard then if i.KeyCode == Enum.KeyCode.Escape then keybinds[S.listenAct] = Enum.KeyCode.Unknown else keybinds[S.listenAct] = i.KeyCode end; updateBindTexts[S.listenAct](); S.listenAct, S.listenBtn = nil, nil end return end; if gp then return end; if i.KeyCode == Enum.KeyCode.RightShift then Panic(); return end; if i.KeyCode == keybinds.Menu then S.isMenuOpen = not S.isMenuOpen; TweenService:Create(main, TweenInfo.new(0.35, Enum.EasingStyle.Quart, Enum.EasingDirection.Out), {Position = S.isMenuOpen and openPos or closedPos}):Play(); TweenService:Create(shadow, TweenInfo.new(0.35, Enum.EasingStyle.Quart, Enum.EasingDirection.Out), {Position = S.isMenuOpen and UDim2.new(0,14,0.5,-253) or UDim2.new(0,-326,0.5,-253)}):Play() end; local function tr(k, f) if k ~= Enum.KeyCode.Unknown and i.KeyCode == k then f() end end; tr(keybinds.Fly, ToggleFly); tr(keybinds.WalkSpeed, ToggleWalkSpeed); tr(keybinds.JumpPower, ToggleJumpPower); tr(keybinds.InfJump, ToggleInfJump); tr(keybinds.Noclip, ToggleNoclip); tr(keybinds.ESP, ToggleESP); tr(keybinds.SelfFreeze, ToggleSelfFreeze); tr(keybinds.FakeInvis, ToggleFakeInvis); tr(keybinds.AntiFling, ToggleAntiFling); tr(keybinds.BypassAC, ToggleBypassAC); tr(keybinds.FOV, ToggleFOV); tr(keybinds.MaxZoom, ToggleZoom); tr(keybinds.AntiLagback, ToggleAntiLagback); if keybinds.Freeze ~= Enum.KeyCode.Unknown and i.KeyCode == keybinds.Freeze then local t = FindPlayer(UI.trollBox.Text); if t and t.Character then untrack("frz"); frozenTarget, frozenCF = t, t.Character.HumanoidRootPart.CFrame; track("frz", RunService.Heartbeat:Connect(function() pcall(function() frozenTarget.Character.HumanoidRootPart.CFrame = frozenCF end) end)); UI.freezeBtn.Text = "🧊 Frozen: " .. t.Name end end end))
 
 task.wait(0.5)
 pcall(function() ToggleAntiFling() end)
-print("[LAI ADMIN v4.9] The Absolute Final - Adonis Slayer + Fly Fixed!")
+warn("[LAI ADMIN v5.1] Tải thành công! Nhớ bật Bypass AC và dùng Safe Exit khi thoát game nhé.")
