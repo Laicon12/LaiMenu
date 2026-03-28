@@ -77,7 +77,7 @@ local keybinds = {
     JumpPower = Enum.KeyCode.Unknown, InfJump = Enum.KeyCode.Unknown, ESP = Enum.KeyCode.Unknown,
     Noclip = Enum.KeyCode.Unknown, Freeze = Enum.KeyCode.Unknown, FakeInvis = Enum.KeyCode.Unknown,
     AntiFling = Enum.KeyCode.Unknown, BypassAC = Enum.KeyCode.Unknown, FOV = Enum.KeyCode.Unknown, MaxZoom = Enum.KeyCode.Unknown,
-    AntiLagback = Enum.KeyCode.Unknown
+    AntiLagback = Enum.KeyCode.Unknown, TpJump = Enum.KeyCode.Unknown
 }
 
 local ConfigName = "LaiAdmin_Config_v5.1.json"
@@ -91,7 +91,7 @@ local T = {
 
 local UI = {}
 local S = {
-    isMenuOpen = true, curFlyMode = "Camera", isFlying = false, isWalk = false, isJump = false, isInfJump = false, 
+    isMenuOpen = true, curFlyMode = "Camera", isFlying = false, isWalk = false, isJump = false, isInfJump = false, isTpJump = false,
     isNoclip = false, isESP = false, isSelfFrozen = false, isFakeInvis = false, isAntiFling = false, isBypassAC = false, 
     isFOV = false, isZoom = false, mouseTpMode = nil, isModernFling = false, isFlingActive = false, isTouchFling = false, 
     isNanFling = false, nanMode = "area", isPushing = false, isSpinning = false, isFollowing = false, nanFlingTarget = nil, 
@@ -140,14 +140,15 @@ local function mkPre(p, lbl, vals, box, ord) local r = Instance.new("Frame", p);
 local function mkLbl(p, txt, ord) local l = Instance.new("TextLabel", p); l.Size, l.BackgroundTransparency, l.Text, l.TextColor3, l.Font, l.TextSize, l.TextXAlignment, l.LayoutOrder = UDim2.new(0.92, 0, 0, 16), 1, txt, T.TextDim, Enum.Font.GothamSemibold, 10, Enum.TextXAlignment.Left, ord; return l end
 local function mkList(p, tBox, ord) local w = Instance.new("Frame", p); w.Size, w.BackgroundTransparency, w.LayoutOrder = UDim2.new(0.9, 0, 0, 135), 1, ord; local sBox = mkInp(w, "🔍 Search Player...", 1); sBox.Size, sBox.Position = UDim2.new(1, 0, 0, 22), UDim2.new(0, 0, 0, 0); local fr = Instance.new("Frame", w); fr.Size, fr.Position, fr.BackgroundColor3, fr.BorderSizePixel = UDim2.new(1, 0, 1, -26), UDim2.new(0, 0, 0, 26), T.ElemBG, 0; Instance.new("UICorner", fr).CornerRadius = UDim.new(0, 6); local sf = Instance.new("ScrollingFrame", fr); sf.Size, sf.BackgroundTransparency, sf.BorderSizePixel, sf.ScrollBarThickness, sf.ScrollBarImageColor3, sf.AutomaticCanvasSize, sf.CanvasSize = UDim2.new(1, 0, 1, 0), 1, 0, 3, T.AccentON, Enum.AutomaticSize.Y, UDim2.new(0, 0, 0, 0); local ll = Instance.new("UIListLayout", sf); ll.Padding, ll.SortOrder = UDim.new(0, 2), Enum.SortOrder.Name; local pp = Instance.new("UIPadding", sf); pp.PaddingTop, pp.PaddingBottom, pp.PaddingLeft, pp.PaddingRight = UDim.new(0,4), UDim.new(0,4), UDim.new(0,4), UDim.new(0,4); local btns = {}; local function ref() for _,b in pairs(btns) do pcall(function() b:Destroy() end) end; btns = {}; for _,pl in ipairs(Players:GetPlayers()) do if pl ~= player then local b = Instance.new("TextButton", sf); b.Size, b.BackgroundColor3, b.TextColor3, b.Font, b.TextSize, b.Text, b.TextXAlignment, b.BorderSizePixel = UDim2.new(1, -6, 0, 24), T.ElemHover, T.TextMain, Enum.Font.GothamSemibold, 12, pl.DisplayName.." (@"..pl.Name..")", Enum.TextXAlignment.Left, 0; Instance.new("UICorner", b).CornerRadius = UDim.new(0, 4); local pad = Instance.new("UIPadding", b); pad.PaddingLeft = UDim.new(0, 6); b.MouseButton1Click:Connect(function() tBox.Text = pl.Name; for _,ob in pairs(btns) do ob.BackgroundColor3 = T.ElemHover; ob.TextColor3 = T.TextMain end; b.BackgroundColor3 = T.AccentON; b.TextColor3 = Color3.fromRGB(20,20,25) end); btns[pl.Name] = b end end end; sBox:GetPropertyChangedSignal("Text"):Connect(function() local txt = sBox.Text:lower(); for _,b in pairs(btns) do b.Visible = (txt == "" or string.find(b.Text:lower(), txt) ~= nil) end end); return w, btns, ref end
 
--- BUILD UI ELEMENTS
+-- BUILD UI ELEMENTS (TÍCH HỢP TP JUMP VÀO ĐÂY)
 UI.flyBtn = mkRow(UI.cMain, "Toggle Fly", "Fly", 1); UI.flyModeBtn = mkBtn(UI.cMain, "Fly Mode: Camera", T.ElemBG, 2); UI.flySpeedBox = mkInp(UI.cMain, "Fly Speed (Def: 50)", 3); UI.flySpeedBox.Text = "50"; mkPre(UI.cMain, "Speed:", {50, 100, 300}, UI.flySpeedBox, 4)
 UI.walkBtn = mkRow(UI.cMain, "Toggle WalkSpeed", "WalkSpeed", 5); UI.walkBox = mkInp(UI.cMain, "Walk Speed (Def: 16)", 6); UI.walkBox.Text = "16"; mkPre(UI.cMain, "Speed:", {16, 50, 100}, UI.walkBox, 7)
 UI.jumpBtn = mkRow(UI.cMain, "Toggle JumpPower", "JumpPower", 8); UI.jumpBox = mkInp(UI.cMain, "Jump Power (Def: 50)", 9); UI.jumpBox.Text = "50"; mkPre(UI.cMain, "Power:", {50, 100, 250}, UI.jumpBox, 10)
-UI.antiLagbackBtn = mkRow(UI.cMain, "🛡️ Toggle Anti-Lagback", "AntiLagback", 11)
-UI.infJumpBtn = mkRow(UI.cMain, "Infinite Jump", "InfJump", 12); UI.noclipBtn = mkRow(UI.cMain, "Toggle Noclip", "Noclip", 13); UI.espBtn = mkRow(UI.cMain, "Toggle Box ESP", "ESP", 14); UI.selfFrzBtn = mkRow(UI.cMain, "🧊 Freeze Self", "SelfFreeze", 15); UI.fakeInvisBtn = mkRow(UI.cMain, "👻 Toggle Fake Invis", "FakeInvis", 16); UI.fakeInvisBox = mkInp(UI.cMain, "Invis Offset (Def: 7)", 17); UI.fakeInvisBox.Text = "7"
-UI.antiFlingBtn = mkRow(UI.cMain, "🛡️ Toggle Anti-Fling", "AntiFling", 18); UI.bypassAcBtn = mkRow(UI.cMain, "🪝 Bypass Walk/Jump AC", "BypassAC", 19)
-mkLbl(UI.cMain, "─── Camera Mods ───", 20); UI.fovBox = mkInp(UI.cMain, "Field of View (Def: 70)", 21); UI.fovBox.Text = "70"; mkPre(UI.cMain, "FOV:", {70, 90, 120}, UI.fovBox, 22); UI.fovBtn = mkRow(UI.cMain, "👁️ Toggle Force FOV", "FOV", 23); UI.zoomBtn = mkRow(UI.cMain, "🔍 Unlock Max Zoom", "MaxZoom", 24)
+UI.tpJumpBtn = mkRow(UI.cMain, "🚀 Toggle Teleport Jump", "TpJump", 11); UI.tpJumpBox = mkInp(UI.cMain, "TP Jump Boost (Def: 5)", 12); UI.tpJumpBox.Text = "5"; mkPre(UI.cMain, "Boost:", {2, 5, 10}, UI.tpJumpBox, 13)
+UI.antiLagbackBtn = mkRow(UI.cMain, "🛡️ Toggle Anti-Lagback", "AntiLagback", 14)
+UI.infJumpBtn = mkRow(UI.cMain, "Infinite Jump", "InfJump", 15); UI.noclipBtn = mkRow(UI.cMain, "Toggle Noclip", "Noclip", 16); UI.espBtn = mkRow(UI.cMain, "Toggle Box ESP", "ESP", 17); UI.selfFrzBtn = mkRow(UI.cMain, "🧊 Freeze Self", "SelfFreeze", 18); UI.fakeInvisBtn = mkRow(UI.cMain, "👻 Toggle Fake Invis", "FakeInvis", 19); UI.fakeInvisBox = mkInp(UI.cMain, "Invis Offset (Def: 7)", 20); UI.fakeInvisBox.Text = "7"
+UI.antiFlingBtn = mkRow(UI.cMain, "🛡️ Toggle Anti-Fling", "AntiFling", 21); UI.bypassAcBtn = mkRow(UI.cMain, "🪝 Bypass Walk/Jump AC", "BypassAC", 22)
+mkLbl(UI.cMain, "─── Camera Mods ───", 23); UI.fovBox = mkInp(UI.cMain, "Field of View (Def: 70)", 24); UI.fovBox.Text = "70"; mkPre(UI.cMain, "FOV:", {70, 90, 120}, UI.fovBox, 25); UI.fovBtn = mkRow(UI.cMain, "👁️ Toggle Force FOV", "FOV", 26); UI.zoomBtn = mkRow(UI.cMain, "🔍 Unlock Max Zoom", "MaxZoom", 27)
 UI.saveCfgBtn = mkBtn(UI.cMain, "💾 Save Config", Color3.fromRGB(40,100,60), 98)
 UI.safeExitBtn = mkBtn(UI.cMain, "🚪 Safe Exit (Chống Ban)", T.Troll, 99)
 
@@ -183,8 +184,12 @@ for _,t in ipairs(tabs) do local tt = t; t.btn.MouseButton1Click:Connect(functio
 local function setBtn(btn, on) btn.BackgroundColor3, btn.TextColor3 = on and T.AccentON or T.ElemBG, on and Color3.fromRGB(25,25,30) or T.TextMain end
 local function FindPlayer(pt) if not pt or pt == "" then return nil end; local low = pt:lower(); for _,p in ipairs(Players:GetPlayers()) do if p ~= player and (p.Name:lower():find(low) or p.DisplayName:lower():find(low)) then return p end end end
 
-local function LoadConfig() pcall(function() if not isfile or not isfile(ConfigName) then return end; local raw = readfile(ConfigName); if not raw or raw == "" then return end; local s, cfg = pcall(function() return HttpService:JSONDecode(raw) end); if s and cfg then if cfg.Keybinds then for k, v in pairs(cfg.Keybinds) do if keybinds[k] then pcall(function() keybinds[k] = Enum.KeyCode[v]; if updateBindTexts[k] then updateBindTexts[k]() end end) end end end; if cfg.WalkSpeed then UI.walkBox.Text = cfg.WalkSpeed end; if cfg.JumpPower then UI.jumpBox.Text = cfg.JumpPower end; if cfg.FlySpeed then UI.flySpeedBox.Text = cfg.FlySpeed end; if cfg.MouseTPSpeed then UI.mouseTpSpeedBox.Text = cfg.MouseTPSpeed end; if cfg.FakeInvisOffset then UI.fakeInvisBox.Text = cfg.FakeInvisOffset end; if cfg.FOVValue then UI.fovBox.Text = cfg.FOVValue end end end) end
-UI.saveCfgBtn.MouseButton1Click:Connect(function() local ok, err = pcall(function() if not writefile then error("No writefile") end; local cfg = {Keybinds = {}, WalkSpeed = UI.walkBox.Text, JumpPower = UI.jumpBox.Text, FlySpeed = UI.flySpeedBox.Text, MouseTPSpeed = UI.mouseTpSpeedBox.Text, FakeInvisOffset = UI.fakeInvisBox.Text, FOVValue = UI.fovBox.Text}; for k, v in pairs(keybinds) do cfg.Keybinds[k] = v.Name end; writefile(ConfigName, HttpService:JSONEncode(cfg)) end); UI.saveCfgBtn.Text = ok and "✅ Saved!" or "❌ Lỗi"; task.delay(1.5, function() UI.saveCfgBtn.Text = "💾 Save Config" end) end); LoadConfig()
+local function LoadConfig() pcall(function() if not isfile or not isfile(ConfigName) then return end; local raw = readfile(ConfigName); if not raw or raw == "" then return end; local s, cfg = pcall(function() return HttpService:JSONDecode(raw) end); if s and cfg then if cfg.Keybinds then for k, v in pairs(cfg.Keybinds) do if keybinds[k] then pcall(function() keybinds[k] = Enum.KeyCode[v]; if updateBindTexts[k] then updateBindTexts[k]() end end) end end end; if cfg.WalkSpeed then UI.walkBox.Text = cfg.WalkSpeed end; if cfg.JumpPower then UI.jumpBox.Text = cfg.JumpPower end; if cfg.TpJumpBoost then UI.tpJumpBox.Text = cfg.TpJumpBoost end; if cfg.FlySpeed then UI.flySpeedBox.Text = cfg.FlySpeed end; if cfg.MouseTPSpeed then UI.mouseTpSpeedBox.Text = cfg.MouseTPSpeed end; if cfg.FakeInvisOffset then UI.fakeInvisBox.Text = cfg.FakeInvisOffset end; if cfg.FOVValue then UI.fovBox.Text = cfg.FOVValue end end end) end
+UI.saveCfgBtn.MouseButton1Click:Connect(function() local ok, err = pcall(function() if not writefile then error("No writefile") end; local cfg = {Keybinds = {}, WalkSpeed = UI.walkBox.Text, JumpPower = UI.jumpBox.Text, TpJumpBoost = UI.tpJumpBox.Text, FlySpeed = UI.flySpeedBox.Text, MouseTPSpeed = UI.mouseTpSpeedBox.Text, FakeInvisOffset = UI.fakeInvisBox.Text, FOVValue = UI.fovBox.Text}; for k, v in pairs(keybinds) do cfg.Keybinds[k] = v.Name end; writefile(ConfigName, HttpService:JSONEncode(cfg)) end); UI.saveCfgBtn.Text = ok and "✅ Saved!" or "❌ Lỗi"; task.delay(1.5, function() UI.saveCfgBtn.Text = "💾 Save Config" end) end); LoadConfig()
+
+-- TÍCH HỢP TELEPORT JUMP TỪ ĐẠT
+local function ToggleTpJump() S.isTpJump = not S.isTpJump; setBtn(UI.tpJumpBtn, S.isTpJump); if S.isTpJump then track("tpJump", RunService.Heartbeat:Connect(function(delta) local char = player.Character; local hum = char and char:FindFirstChildWhichIsA("Humanoid"); if hum then local root = hum.Parent:FindFirstChild("HumanoidRootPart"); if root then local state = hum:GetState(); if state == Enum.HumanoidStateType.Jumping or state == Enum.HumanoidStateType.Freefall then local boost = tonumber(UI.tpJumpBox.Text) or 5; root.CFrame = root.CFrame + Vector3.new(0, boost * delta * 10, 0) end end end end)) else untrack("tpJump") end end
+UI.tpJumpBtn.MouseButton1Click:Connect(ToggleTpJump)
 
 -- OPTION: ANTI-LAGBACK
 local function ToggleAntiLagback()
@@ -279,42 +284,35 @@ local function ToggleWalkSpeed() S.isWalk = not S.isWalk; setBtn(UI.walkBtn, S.i
 local function applyJump() pcall(function() player.Character.Humanoid.UseJumpPower = true; player.Character.Humanoid.JumpPower = math.clamp(tonumber(UI.jumpBox.Text) or 50, 0, 1000) end) end
 local function ToggleJumpPower() S.isJump = not S.isJump; setBtn(UI.jumpBtn, S.isJump); if S.isJump then applyJump(); track("jump", RunService.Heartbeat:Connect(applyJump)) else untrack("jump"); pcall(function() player.Character.Humanoid.UseJumpPower = true; player.Character.Humanoid.JumpPower = 50 end) end end
 local function ToggleInfJump() S.isInfJump = not S.isInfJump; setBtn(UI.infJumpBtn, S.isInfJump); if S.isInfJump then track("infJump", UserInputService.JumpRequest:Connect(function() pcall(function() player.Character.Humanoid:ChangeState(Enum.HumanoidStateType.Jumping) end) end)) else untrack("infJump") end end
+
 -- [CƠ CHẾ NOCLIP V2 - DYNAMIC STEPPED]
 local function ToggleNoclip() 
     S.isNoclip = not S.isNoclip
     setBtn(UI.noclipBtn, S.isNoclip) 
-    
     if S.isNoclip then 
-        -- Khi Bật: Liên tục tắt CanCollide mỗi frame trước khi engine tính toán vật lý
         track("noclip", RunService.Stepped:Connect(function() 
             local char = player.Character
             if char then
                 for _, p in ipairs(char:GetDescendants()) do 
-                    if p:IsA("BasePart") and p.CanCollide then 
-                        p.CanCollide = false 
-                    end 
+                    if p:IsA("BasePart") and p.CanCollide then p.CanCollide = false end 
                 end 
             end
         end)) 
     else 
-        -- Khi Tắt: Dừng vòng lặp và trả lại trạng thái vật lý bình thường
         untrack("noclip") 
         task.spawn(function() 
             local char = player.Character
             if char then
-                -- Trả lại CanCollide = true cho toàn bộ cơ thể
                 for _, p in ipairs(char:GetDescendants()) do 
-                    if p:IsA("BasePart") then 
-                        p.CanCollide = true 
-                    end 
+                    if p:IsA("BasePart") then p.CanCollide = true end 
                 end 
-                -- Lưu ý: HumanoidRootPart mặc định của Roblox luôn là false, ép nó thành false để không bị lỗi đi bộ
                 local hrp = char:FindFirstChild("HumanoidRootPart")
                 if hrp then hrp.CanCollide = false end
             end 
         end) 
     end 
 end
+
 local espFolder = Instance.new("Folder", camera); espFolder.Name = randName(8)
 local function addESP(p) if p == player or not p.Character then return end; for _,h in ipairs(espFolder:GetChildren()) do if h.Name == p.Name then return end end; local hrp = p.Character:WaitForChild("HumanoidRootPart", 2); if hrp then local box = Instance.new("BoxHandleAdornment", espFolder); box.Name, box.Adornee, box.Size, box.AlwaysOnTop, box.Color3, box.Transparency, box.ZIndex = p.Name, hrp, Vector3.new(4, 5.5, 2), true, Color3.fromRGB(0,170,255), 0.65, 1; local bb = Instance.new("BillboardGui", espFolder); bb.Name, bb.Adornee, bb.Size, bb.StudsOffset, bb.AlwaysOnTop = p.Name.."_BB", hrp, UDim2.new(0, 100, 0, 30), Vector3.new(0, 3.5, 0), true; local lbl = Instance.new("TextLabel", bb); lbl.Size, lbl.BackgroundTransparency, lbl.Text, lbl.TextColor3, lbl.TextStrokeTransparency, lbl.Font, lbl.TextSize = UDim2.new(1, 0, 1, 0), 1, p.DisplayName, Color3.fromRGB(0, 200, 255), 0, Enum.Font.GothamBold, 13 end end
 local espCharConns = {}
@@ -381,8 +379,8 @@ local spinTarget, followTarget = nil, nil
 UI.spinBtn.MouseButton1Click:Connect(function() S.isSpinning = not S.isSpinning; if S.isSpinning then spinTarget = FindPlayer(UI.trollBox.Text); if spinTarget then UI.spinBtn.BackgroundColor3, UI.spinBtn.Text = T.Troll, "🌀 Stop Spin"; track("spin", RunService.Stepped:Connect(function() pcall(function() spinTarget.Character.HumanoidRootPart.CFrame *= CFrame.Angles(0, math.rad(18), 0) end) end)) else S.isSpinning = false end else untrack("spin"); UI.spinBtn.BackgroundColor3, UI.spinBtn.Text = Color3.fromRGB(100,20,140), "🌀 Spin Player" end end)
 UI.followBtn.MouseButton1Click:Connect(function() S.isFollowing = not S.isFollowing; if S.isFollowing then followTarget = FindPlayer(UI.trollBox.Text); if followTarget then UI.followBtn.BackgroundColor3, UI.followBtn.Text = T.Troll, "👁 Stop Follow"; track("fol", RunService.Heartbeat:Connect(function() pcall(function() local mR, tR = player.Character.HumanoidRootPart, followTarget.Character.HumanoidRootPart; if (mR.Position - tR.Position).Magnitude > 8 then mR.CFrame = tR.CFrame * CFrame.new(2, 0, 3) end end) end)) else S.isFollowing = false end else untrack("fol"); UI.followBtn.BackgroundColor3, UI.followBtn.Text = Color3.fromRGB(20,120,80), "👁 Follow Player" end end)
 
-local function Panic() for l, _ in pairs(Connections) do untrack(l) end; if S.isFlying then StopFly(); setBtn(UI.flyBtn, false) end; pcall(function() local h = player.Character.Humanoid; h.WalkSpeed, h.UseJumpPower, h.JumpPower = 16, true, 50 end); setBtn(UI.walkBtn, false); setBtn(UI.jumpBtn, false); if S.isNoclip then ToggleNoclip() end; if S.isESP then ToggleESP() end; if S.isFakeInvis then ToggleFakeInvis() end; if S.mouseTpMode then StopMouseTP() end; if S.isAntiFling then ToggleAntiFling() end; if S.isFOV then ToggleFOV() end; if S.isZoom then ToggleZoom() end; stpW(); titleLbl.Text, titleLbl.TextColor3 = "⚠ PANIC RESET", T.Troll; task.delay(1.5, function() titleLbl.Text, titleLbl.TextColor3 = "LAI ADMIN", T.TextMain end) end
-track("input", UserInputService.InputBegan:Connect(function(i, gp) if S.listenAct then if i.UserInputType == Enum.UserInputType.Keyboard then if i.KeyCode == Enum.KeyCode.Escape then keybinds[S.listenAct] = Enum.KeyCode.Unknown else keybinds[S.listenAct] = i.KeyCode end; updateBindTexts[S.listenAct](); S.listenAct, S.listenBtn = nil, nil end return end; if gp then return end; if i.KeyCode == Enum.KeyCode.RightShift then Panic(); return end; if i.KeyCode == keybinds.Menu then S.isMenuOpen = not S.isMenuOpen; TweenService:Create(main, TweenInfo.new(0.35, Enum.EasingStyle.Quart, Enum.EasingDirection.Out), {Position = S.isMenuOpen and openPos or closedPos}):Play(); TweenService:Create(shadow, TweenInfo.new(0.35, Enum.EasingStyle.Quart, Enum.EasingDirection.Out), {Position = S.isMenuOpen and UDim2.new(0,14,0.5,-253) or UDim2.new(0,-326,0.5,-253)}):Play() end; local function tr(k, f) if k ~= Enum.KeyCode.Unknown and i.KeyCode == k then f() end end; tr(keybinds.Fly, ToggleFly); tr(keybinds.WalkSpeed, ToggleWalkSpeed); tr(keybinds.JumpPower, ToggleJumpPower); tr(keybinds.InfJump, ToggleInfJump); tr(keybinds.Noclip, ToggleNoclip); tr(keybinds.ESP, ToggleESP); tr(keybinds.SelfFreeze, ToggleSelfFreeze); tr(keybinds.FakeInvis, ToggleFakeInvis); tr(keybinds.AntiFling, ToggleAntiFling); tr(keybinds.BypassAC, ToggleBypassAC); tr(keybinds.FOV, ToggleFOV); tr(keybinds.MaxZoom, ToggleZoom); tr(keybinds.AntiLagback, ToggleAntiLagback); if keybinds.Freeze ~= Enum.KeyCode.Unknown and i.KeyCode == keybinds.Freeze then local t = FindPlayer(UI.trollBox.Text); if t and t.Character then untrack("frz"); frozenTarget, frozenCF = t, t.Character.HumanoidRootPart.CFrame; track("frz", RunService.Heartbeat:Connect(function() pcall(function() frozenTarget.Character.HumanoidRootPart.CFrame = frozenCF end) end)); UI.freezeBtn.Text = "🧊 Frozen: " .. t.Name end end end))
+local function Panic() for l, _ in pairs(Connections) do untrack(l) end; if S.isFlying then StopFly(); setBtn(UI.flyBtn, false) end; pcall(function() local h = player.Character.Humanoid; h.WalkSpeed, h.UseJumpPower, h.JumpPower = 16, true, 50 end); setBtn(UI.walkBtn, false); setBtn(UI.jumpBtn, false); setBtn(UI.tpJumpBtn, false); if S.isNoclip then ToggleNoclip() end; if S.isESP then ToggleESP() end; if S.isFakeInvis then ToggleFakeInvis() end; if S.mouseTpMode then StopMouseTP() end; if S.isAntiFling then ToggleAntiFling() end; if S.isFOV then ToggleFOV() end; if S.isZoom then ToggleZoom() end; stpW(); titleLbl.Text, titleLbl.TextColor3 = "⚠ PANIC RESET", T.Troll; task.delay(1.5, function() titleLbl.Text, titleLbl.TextColor3 = "LAI ADMIN", T.TextMain end) end
+track("input", UserInputService.InputBegan:Connect(function(i, gp) if S.listenAct then if i.UserInputType == Enum.UserInputType.Keyboard then if i.KeyCode == Enum.KeyCode.Escape then keybinds[S.listenAct] = Enum.KeyCode.Unknown else keybinds[S.listenAct] = i.KeyCode end; updateBindTexts[S.listenAct](); S.listenAct, S.listenBtn = nil, nil end return end; if gp then return end; if i.KeyCode == Enum.KeyCode.RightShift then Panic(); return end; if i.KeyCode == keybinds.Menu then S.isMenuOpen = not S.isMenuOpen; TweenService:Create(main, TweenInfo.new(0.35, Enum.EasingStyle.Quart, Enum.EasingDirection.Out), {Position = S.isMenuOpen and openPos or closedPos}):Play(); TweenService:Create(shadow, TweenInfo.new(0.35, Enum.EasingStyle.Quart, Enum.EasingDirection.Out), {Position = S.isMenuOpen and UDim2.new(0,14,0.5,-253) or UDim2.new(0,-326,0.5,-253)}):Play() end; local function tr(k, f) if k ~= Enum.KeyCode.Unknown and i.KeyCode == k then f() end end; tr(keybinds.Fly, ToggleFly); tr(keybinds.WalkSpeed, ToggleWalkSpeed); tr(keybinds.JumpPower, ToggleJumpPower); tr(keybinds.InfJump, ToggleInfJump); tr(keybinds.Noclip, ToggleNoclip); tr(keybinds.ESP, ToggleESP); tr(keybinds.SelfFreeze, ToggleSelfFreeze); tr(keybinds.FakeInvis, ToggleFakeInvis); tr(keybinds.AntiFling, ToggleAntiFling); tr(keybinds.BypassAC, ToggleBypassAC); tr(keybinds.FOV, ToggleFOV); tr(keybinds.MaxZoom, ToggleZoom); tr(keybinds.AntiLagback, ToggleAntiLagback); tr(keybinds.TpJump, ToggleTpJump); if keybinds.Freeze ~= Enum.KeyCode.Unknown and i.KeyCode == keybinds.Freeze then local t = FindPlayer(UI.trollBox.Text); if t and t.Character then untrack("frz"); frozenTarget, frozenCF = t, t.Character.HumanoidRootPart.CFrame; track("frz", RunService.Heartbeat:Connect(function() pcall(function() frozenTarget.Character.HumanoidRootPart.CFrame = frozenCF end) end)); UI.freezeBtn.Text = "🧊 Frozen: " .. t.Name end end end))
 
 task.wait(0.5)
 pcall(function() ToggleAntiFling() end)
