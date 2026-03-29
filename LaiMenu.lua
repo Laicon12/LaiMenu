@@ -156,6 +156,7 @@ UI.espBtn = mkRow(UI.cMain, "👁️ Toggle 2D ESP Xịn", "ESP", 18)
 UI.tracerBtn = mkBtn(UI.cMain, "〰️ ESP Tracers: ON", Color3.fromRGB(40,150,100), 19) -- [NÚT TOGGLE TRACER ĐỘC LẬP]
 UI.selfFrzBtn = mkRow(UI.cMain, "🧊 Freeze Self", "SelfFreeze", 20); UI.fakeInvisBtn = mkRow(UI.cMain, "👻 Toggle Fake Invis", "FakeInvis", 21); UI.fakeInvisBox = mkInp(UI.cMain, "Invis Offset (Def: 7)", 22); UI.fakeInvisBox.Text = "7"
 UI.antiFlingBtn = mkRow(UI.cMain, "🛡️ Toggle Anti-Fling", "AntiFling", 23); UI.bypassAcBtn = mkRow(UI.cMain, "🪝 Bypass Walk/Jump AC", "BypassAC", 24)
+UI.remoteBlockBtn = mkRow(UI.cMain, "🛡️ Block Remote Kick/Ban", "RemoteBlock", 24.5)
 mkLbl(UI.cMain, "─── Camera Mods ───", 25); UI.fovBox = mkInp(UI.cMain, "Field of View (Def: 70)", 26); UI.fovBox.Text = "70"; mkPre(UI.cMain, "FOV:", {70, 90, 120}, UI.fovBox, 27); UI.fovBtn = mkRow(UI.cMain, "👁️ Toggle Force FOV", "FOV", 28); UI.zoomBtn = mkRow(UI.cMain, "🔍 Unlock Max Zoom", "MaxZoom", 29)
 UI.saveCfgBtn = mkBtn(UI.cMain, "💾 Save Config", Color3.fromRGB(40,100,60), 98)
 UI.safeExitBtn = mkBtn(UI.cMain, "🚪 Safe Exit (Chống Ban)", T.Troll, 99)
@@ -346,13 +347,85 @@ local function StartMouseTP(mode, btn, acolor, atext) if S.mouseTpMode == mode t
 UI.mouseTpBtn.MouseButton1Click:Connect(function() StartMouseTP("Tween", UI.mouseTpBtn, T.AccentON, "🖱️ Đang bật: Tween Mode") end); UI.mouseTpStepBtn.MouseButton1Click:Connect(function() StartMouseTP("Step", UI.mouseTpStepBtn, T.Warn, "🖱️ Đang bật: Step Mode") end); UI.mouseTpPivotBtn.MouseButton1Click:Connect(function() StartMouseTP("Pivot", UI.mouseTpPivotBtn, Color3.fromRGB(180,80,255), "🖱️ Đang bật: Pivot Mode") end)
 
 -- TROLL LOGIC
-local oldIndex
+-- [TAM TẦNG BẢO VỆ: SPOOFING + ANTI-KICK + ANTI-STUN]
+-- ==========================================
+-- 1. BYPASS AC CƠ BẢN (SPOOFING + ANTI-STUN) - AN TOÀN
+-- ==========================================
+local oldIndex, oldNewindex
 local bypassWarningGiven = false
 local function ToggleBypassAC() 
-    if AdonisFound and not S.isBypassAC and not bypassWarningGiven then bypassWarningGiven = true; UI.bypassAcBtn.Text = "⚠️ CÓ ADONIS! Bấm lại để CỐ BẬT"; UI.bypassAcBtn.BackgroundColor3 = T.Warn; UI.bypassAcBtn.TextColor3 = Color3.fromRGB(20, 20, 20); task.delay(3, function() if not S.isBypassAC then bypassWarningGiven = false; UI.bypassAcBtn.Text = "🪝 Bypass Walk/Jump AC"; UI.bypassAcBtn.BackgroundColor3 = T.ElemBG; UI.bypassAcBtn.TextColor3 = T.TextMain end end); return end
-    if not hookmetamethod then UI.bypassAcBtn.Text = "❌ Not Supported"; task.wait(2); UI.bypassAcBtn.Text = "🪝 Bypass Walk/Jump AC"; return end
-    S.isBypassAC = not S.isBypassAC; if S.isBypassAC then if AdonisFound then UI.bypassAcBtn.Text = "☠️ Đang ép Bypass"; UI.bypassAcBtn.BackgroundColor3 = T.Troll; UI.bypassAcBtn.TextColor3 = Color3.fromRGB(20, 20, 20) else setBtn(UI.bypassAcBtn, true); UI.bypassAcBtn.Text = "🪝 Bypass AC: ON" end; if not oldIndex then oldIndex = hookmetamethod(game, "__index", newcclosure(function(t, k) if not checkcaller() and S.isBypassAC and typeof(t) == "Instance" and t:IsA("Humanoid") then if k == "WalkSpeed" then return 16 end; if k == "JumpPower" then return 50 end; if k == "HipHeight" then return t.RigType == Enum.HumanoidRigType.R15 and 2 or 0 end end; return oldIndex(t, k) end)) end else bypassWarningGiven = false; setBtn(UI.bypassAcBtn, false); UI.bypassAcBtn.Text = "🪝 Bypass Walk/Jump AC" end
+    if AdonisFound and not S.isBypassAC and not bypassWarningGiven then bypassWarningGiven = true;
+        UI.bypassAcBtn.Text = "⚠️ CÓ ADONIS! Bấm lại để CỐ BẬT"; UI.bypassAcBtn.BackgroundColor3 = T.Warn; UI.bypassAcBtn.TextColor3 = Color3.fromRGB(20, 20, 20);
+        task.delay(3, function() if not S.isBypassAC then bypassWarningGiven = false; UI.bypassAcBtn.Text = "🪝 Bypass Walk/Jump AC"; UI.bypassAcBtn.BackgroundColor3 = T.ElemBG; UI.bypassAcBtn.TextColor3 = T.TextMain end end);
+        return 
+    end
+    if not hookmetamethod then return end
+    
+    S.isBypassAC = not S.isBypassAC;
+    if S.isBypassAC then 
+        if AdonisFound then UI.bypassAcBtn.Text = "☠️ Đang ép Bypass"; UI.bypassAcBtn.BackgroundColor3 = T.Troll; UI.bypassAcBtn.TextColor3 = Color3.fromRGB(20, 20, 20) else setBtn(UI.bypassAcBtn, true); UI.bypassAcBtn.Text = "🪝 Bypass AC: ON" end;
+        
+        -- [TẦNG 1]: SPOOFING
+        if not oldIndex then 
+            oldIndex = hookmetamethod(game, "__index", newcclosure(function(t, k) 
+                if not checkcaller() and S.isBypassAC and typeof(t) == "Instance" and t:IsA("Humanoid") then 
+                    if k == "WalkSpeed" then return 16 end
+                    if k == "JumpPower" then return 50 end
+                    if k == "HipHeight" then return t.RigType == Enum.HumanoidRigType.R15 and 2 or 0 end 
+                end
+                return oldIndex(t, k) 
+            end)) 
+        end 
+
+        -- [TẦNG 3]: ANTI-STUN
+        if not oldNewindex then
+            oldNewindex = hookmetamethod(game, "__newindex", newcclosure(function(t, k, v)
+                if not checkcaller() and S.isBypassAC and typeof(t) == "Instance" and t:IsA("Humanoid") then
+                    if k == "WalkSpeed" or k == "JumpPower" then return nil end
+                end
+                return oldNewindex(t, k, v)
+            end))
+        end
+    else 
+        bypassWarningGiven = false; setBtn(UI.bypassAcBtn, false); UI.bypassAcBtn.Text = "🪝 Bypass Walk/Jump AC" 
+    end
 end
+
+-- ==========================================
+-- 2. BLOCK REMOTE KICK/BAN (TẦNG 2) - NÚT RIÊNG BIỆT (RỦI RO CAO)
+-- ==========================================
+local oldNamecall
+S.isRemoteBlock = false
+local function ToggleRemoteBlock()
+    S.isRemoteBlock = not S.isRemoteBlock
+    setBtn(UI.remoteBlockBtn, S.isRemoteBlock)
+    
+    if S.isRemoteBlock then
+        UI.remoteBlockBtn.Text = "🛡️ Block Remote: ON"
+        UI.remoteBlockBtn.BackgroundColor3 = T.Warn -- Để màu Vàng cảnh báo rủi ro
+        UI.remoteBlockBtn.TextColor3 = Color3.fromRGB(20, 20, 20)
+        
+        if not oldNamecall then
+            oldNamecall = hookmetamethod(game, "__namecall", newcclosure(function(self, ...)
+                local method = getnamecallmethod()
+                
+                if not checkcaller() and S.isRemoteBlock then
+                    if method == "Kick" or method == "kick" then return nil end
+                    if method == "FireServer" or method == "InvokeServer" then
+                        local name = string.lower(self.Name)
+                        if string.find(name, "report") or string.find(name, "punish") or string.find(name, "detect") or string.find(name, "ban") then return nil end
+                        if (string.find(name, "kick") or string.find(name, "log")) and (string.find(name, "anti") or string.find(name, "cheat") or string.find(name, "admin")) then return nil end
+                    end
+                end
+                return oldNamecall(self, ...)
+            end))
+        end
+    else
+        UI.remoteBlockBtn.Text = "🛡️ Block Remote Kick/Ban"
+        UI.remoteBlockBtn.TextColor3 = T.TextMain
+    end
+end
+
 
 local selfFrzCF = nil
 local function ToggleSelfFreeze() S.isSelfFrozen = not S.isSelfFrozen; setBtn(UI.selfFrzBtn, S.isSelfFrozen); local hrp = player.Character and player.Character:FindFirstChild("HumanoidRootPart"); if S.isSelfFrozen then if not hrp then S.isSelfFrozen = false; setBtn(UI.selfFrzBtn, false); return end; selfFrzCF = hrp.CFrame; hrp.AssemblyLinearVelocity, hrp.AssemblyAngularVelocity, hrp.Anchored = Vector3.zero, Vector3.zero, true; pcall(function() player.Character.Humanoid.WalkSpeed, player.Character.Humanoid.JumpPower = 0, 0 end); UI.selfFrzBtn.Text = "🔥 Unfreeze Self"; track("sFrz", RunService.Heartbeat:Connect(function() pcall(function() local h2 = player.Character.HumanoidRootPart; h2.Anchored, h2.AssemblyLinearVelocity, h2.AssemblyAngularVelocity = true, Vector3.zero, Vector3.zero; if (h2.Position - selfFrzCF.Position).Magnitude > 0.5 then h2.CFrame = selfFrzCF end end) end)) else untrack("sFrz"); if hrp then hrp.Anchored = false end; pcall(function() player.Character.Humanoid.WalkSpeed = S.isWalk and (tonumber(UI.walkBox.Text) or 16) or 16; player.Character.Humanoid.JumpPower = S.isJump and (tonumber(UI.jumpBox.Text) or 50) or 50 end); selfFrzCF = nil; UI.selfFrzBtn.Text = "🧊 Freeze Self" end end
@@ -489,6 +562,7 @@ UI.speedModeBtn.MouseButton1Click:Connect(function()
     S.speedMode = (S.speedMode == "Stealth" and "Classic" or "Stealth")
     UI.speedModeBtn.Text = "Speed Mode: " .. (S.speedMode == "Stealth" and "Stealth (Safe)" or "Classic (Risk)")
     UI.speedModeBtn.TextColor3 = (S.speedMode == "Stealth" and T.AccentON or T.Warn)
+    UI.remoteBlockBtn.MouseButton1Click:Connect(ToggleRemoteBlock)
 end)
 task.wait(0.5)
 pcall(function() ToggleAntiFling() end)
