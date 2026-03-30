@@ -51,6 +51,7 @@ local UserInputService = game:GetService("UserInputService")
 local TweenService = game:GetService("TweenService")
 local Workspace = game:GetService("Workspace")
 local HttpService = game:GetService("HttpService")
+local CAS = game:GetService("ContextActionService")
 
 local player = Players.LocalPlayer
 local camera = Workspace.CurrentCamera
@@ -213,32 +214,125 @@ LoadConfig()
 
 -- [VELOCITY SPOOFING WALKSPEED (AC BYPASS)]
 -- [CHẾ ĐỘ WALKSPEED KÉP: STEALTH & CLASSIC]
+-- [GODMOVE HELPERS]
+local gm_lc, gm_ofn, gm_lastState
+local gm_stateConns = {}
+local BLOCKED_STATES = {Enum.HumanoidStateType.FallingDown, Enum.HumanoidStateType.Ragdoll, Enum.HumanoidStateType.GettingUp, Enum.HumanoidStateType.PlatformStanding, Enum.HumanoidStateType.StrafingNoPhysics, Enum.HumanoidStateType.Seated, Enum.HumanoidStateType.Physics}
+local ALLOWED_STATES = {Enum.HumanoidStateType.Running, Enum.HumanoidStateType.RunningNoPhysics, Enum.HumanoidStateType.Freefall, Enum.HumanoidStateType.Jumping, Enum.HumanoidStateType.Swimming, Enum.HumanoidStateType.Climbing}
+local SUNK_ACTIONS = {"seatAction", "ragdollAction", "platformstandAction"}
+
+local function gm_hookController()
+    local ctrl
+    pcall(function() ctrl = require(player:WaitForChild("PlayerScripts"):WaitForChild("PlayerModule")):GetControls() end)
+    if not ctrl then return end
+    local ok, ac = pcall(function() return ctrl.activeController end)
+    if not ok or not ac or ac == gm_lc then return end
+    gm_lc = ac
+    if ac.__hooked then gm_ofn = ac.__orig return end
+    ac.__hooked = true; ac.__orig = ac.GetMoveVector; gm_ofn = ac.__orig
+    ac.GetMoveVector = function(self)
+        local ok2, v = pcall(ac.__orig, self)
+        return ok2 and v or Vector3.zero
+    end
+end
+
+local function gm_unhookController()
+    if not gm_lc or not gm_lc.__hooked then return end
+    pcall(function() gm_lc.GetMoveVector = gm_lc.__orig; gm_lc.__hooked = nil; gm_lc.__orig = nil end)
+end
+
+local function gm_getMoveVec()
+    if not gm_ofn or not gm_lc then return Vector3.zero end
+    local ok, v = pcall(gm_ofn, gm_lc)
+    return ok and v or Vector3.zero
+end
+
+local function gm_worldDir(mv)
+    local cam = workspace.CurrentCamera
+    if not cam then return nil end
+    local d = cam.CFrame:VectorToWorldSpace(Vector3.new(mv.X, 0, mv.Z))
+    d = Vector3.new(d.X, 0, d.Z)
+    if d.Magnitude < 0.001 then return nil end
+    return d.Unit
+end
+
+-- [MAIN WALKSPEED LOGIC: CLASSIC / STEALTH / GODMOVE]
 local function ToggleWalkSpeed() 
     S.isWalk = not S.isWalk
     setBtn(UI.walkBtn, S.isWalk)
-    if S.isWalk then 
-        track("walk", RunService.RenderStepped:Connect(function(dt)
-            pcall(function()
-                local hum = player.Character.Humanoid
-                local hrp = player.Character.HumanoidRootPart
-                local targetSpeed = tonumber(UI.walkBox.Text) or 16
+    
+    -- Dọn dẹp rác từ lần bật trước
+    untrack("walk")
+    untrack("godmove")
+    gm_unhookController()
+    pcall(function() player.Character.Humanoid.WalkSpeed = 16 end)
+    for _, name in ipairs(SUNK_ACTIONS) do pcall(function() CAS:UnbindAction(name) end) end
 
-                if S.speedMode == "Classic" then
-                    -- CHẾ ĐỘ CŨ: Đổi thẳng WalkSpeed
-                    hum.WalkSpeed = targetSpeed
-                else
-                    -- CHẾ ĐỘ MỚI (Mặc định): Velocity Spoofing
-                    hum.WalkSpeed = 16 
-                    if targetSpeed > 16 and hum.MoveDirection.Magnitude > 0 then
-                        local extraSpeed = targetSpeed - 16
-                        hrp.CFrame = hrp.CFrame + (hum.MoveDirection * extraSpeed * dt)
+    if S.isWalk then 
+        if S.speedMode == "Classic" or S.speedMode == "Stealth" then
+            track("walk", RunService.RenderStepped:Connect(function(dt)
+                pcall(function()
+                    local hum = player.Character.Humanoid
+                    local hrp = player.Character.HumanoidRootPart
+                    local targetSpeed = tonumber(UI.walkBox.Text) or 16
+
+                    if S.speedMode == "Classic" then
+                        hum.WalkSpeed = targetSpeed
+                    else
+                        hum.WalkSpeed = 16 
+                        if targetSpeed > 16 and hum.MoveDirection.Magnitude > 0 then
+                            local extraSpeed = targetSpeed - 16
+                            hrp.CFrame = hrp.CFrame + (hum.MoveDirection * extraSpeed * dt)
+                        end
                     end
-                end
-            end)
-        end))
-    else 
-        untrack("walk")
-        pcall(function() player.Character.Humanoid.WalkSpeed = 16 end) 
+                end)
+            end))
+        elseif S.speedMode == "GodMove" then
+            -- BẬT CHẾ ĐỘ THẦN THÁNH
+            local hum = player.Character:FindFirstChild("Humanoid")
+            local hrp = player.Character:FindFirstChild("HumanoidRootPart")
+            if not hum or not hrp then return end
+            
+            for _, name in ipairs(SUNK_ACTIONS) do
+                pcall(function() CAS:BindAction(name, function() return Enum.ContextActionResult.Sink end, false, Enum.KeyCode.Unknown) end)
+            end
+            
+            track("godmove", RunService.Heartbeat:Connect(function()
+                pcall(function()
+                    local targetSpeed = tonumber(UI.walkBox.Text) or 16
+                    hum.WalkSpeed = 16 -- Ép bằng 16 để mù mắt AntiCheat
+                    
+                    for _, s in ipairs(BLOCKED_STATES) do pcall(function() hum:SetStateEnabled(s, false) end) end
+                    for _, s in ipairs(ALLOWED_STATES) do pcall(function() hum:SetStateEnabled(s, true) end) end
+                    
+                    gm_hookController()
+                    local mv = gm_getMoveVec()
+                    if mv.Magnitude <= 0 then return end
+                    
+                    local dir = gm_worldDir(mv)
+                    if not dir then return end
+                    
+                    local cv = hrp.AssemblyLinearVelocity
+                    local st = hum:GetState()
+                    local vx, vz = dir.X * targetSpeed, dir.Z * targetSpeed
+                    
+                    if st == Enum.HumanoidStateType.Freefall or st == Enum.HumanoidStateType.Jumping or st == Enum.HumanoidStateType.Swimming or st == Enum.HumanoidStateType.Climbing then
+                        hrp.AssemblyLinearVelocity = Vector3.new(vx, cv.Y, vz)
+                        return
+                    end
+                    
+                    if st ~= Enum.HumanoidStateType.Running and st ~= Enum.HumanoidStateType.RunningNoPhysics then
+                        if st ~= gm_lastState then
+                            gm_lastState = st
+                            pcall(function() hum:ChangeState(Enum.HumanoidStateType.Running) end)
+                        end
+                    else
+                        gm_lastState = nil
+                    end
+                    hrp.AssemblyLinearVelocity = Vector3.new(vx, cv.Y, vz)
+                end)
+            end))
+        end
     end 
 end
 
@@ -576,11 +670,31 @@ for name, btn in pairs(UI.emoteBtns) do btn.MouseButton1Click:Connect(function()
 player.CharacterAdded:Connect(function(char) task.wait(0.3); if S.isWalk then untrack("walk"); pcall(function() player.Character.Humanoid.WalkSpeed = 16 end); ToggleWalkSpeed() end; if S.isJump then applyJump() end; if S.isFlying then StopFly(); S.isFlying = false; task.wait(0.15); ToggleFly() end; if S.isNoclip then task.wait(0.1); nocParts = {}; for _,p in ipairs(char:GetDescendants()) do if p:IsA("BasePart") then nocParts[#nocParts+1] = p end end end; if S.isFakeInvis then S.isFakeInvis = false; untrack("fInvSim"); RunService:UnbindFromRenderStep("fInvCam"); task.wait(0.1); ToggleFakeInvis() end end)
 UI.safeExitBtn.MouseButton1Click:Connect(function() pcall(function() UI.safeExitBtn.Text = "🚪 Đang ngắt kết nối an toàn..."; local hrp = player.Character and player.Character:FindFirstChild("HumanoidRootPart"); if hrp then hrp.Anchored = true end; if S.isESP then ToggleESP() end; task.wait(1.5); game:Shutdown() end) end)
 -- [KẾT NỐI NÚT ĐỔI CHẾ ĐỘ SPEED]
-S.speedMode = "Stealth" -- Mặc định là Stealth cho an toàn
+-- [KẾT NỐI NÚT ĐỔI CHẾ ĐỘ SPEED]
+S.speedMode = "GodMove" -- Đặt GodMove làm mặc định vì nó quá xịn!
+UI.speedModeBtn.Text = "Speed Mode: GodMove (Vật lý)"
+UI.speedModeBtn.TextColor3 = Color3.fromRGB(180, 80, 255) -- Màu Tím VIP
+
 UI.speedModeBtn.MouseButton1Click:Connect(function()
-    S.speedMode = (S.speedMode == "Stealth" and "Classic" or "Stealth")
-    UI.speedModeBtn.Text = "Speed Mode: " .. (S.speedMode == "Stealth" and "Stealth (Safe)" or "Classic (Risk)")
-    UI.speedModeBtn.TextColor3 = (S.speedMode == "Stealth" and T.AccentON or T.Warn)
+    if S.speedMode == "Stealth" then
+        S.speedMode = "Classic"
+        UI.speedModeBtn.Text = "Speed Mode: Classic (Risk)"
+        UI.speedModeBtn.TextColor3 = T.Warn
+    elseif S.speedMode == "Classic" then
+        S.speedMode = "GodMove"
+        UI.speedModeBtn.Text = "Speed Mode: GodMove (Vật lý)"
+        UI.speedModeBtn.TextColor3 = Color3.fromRGB(180, 80, 255) 
+    else
+        S.speedMode = "Stealth"
+        UI.speedModeBtn.Text = "Speed Mode: Stealth (Safe)"
+        UI.speedModeBtn.TextColor3 = T.AccentON
+    end
+    
+    -- Tự động áp dụng Mode mới ngay lập tức nếu đang bật WalkSpeed
+    if S.isWalk then
+        ToggleWalkSpeed() -- Tắt
+        ToggleWalkSpeed() -- Bật lại
+    end
 end)
 
 -- [CẮM ĐIỆN ĐỘC LẬP CHO NÚT REMOTE BLOCK]
