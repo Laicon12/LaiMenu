@@ -1,5 +1,5 @@
 -- ============================================================
--- LAI ADMIN v6.2 | ULTIMATE STABILITY & ORIGINAL AURA
+-- LAI ADMIN v6.2.1 | ULTIMATE STABILITY & NAH GOD AURA
 -- ============================================================
 
 local AdonisFound, DetectedFunc, OriginalInfo = false, nil, {}
@@ -85,6 +85,7 @@ local keybinds = {
     AntiFling = Enum.KeyCode.Unknown, BypassAC = Enum.KeyCode.Unknown, FOV = Enum.KeyCode.Unknown, MaxZoom = Enum.KeyCode.Unknown,
     AntiLagback = Enum.KeyCode.Unknown, TpJump = Enum.KeyCode.Unknown, Blink = Enum.KeyCode.Unknown, NanFling = Enum.KeyCode.Unknown, 
     RemoteBlock = Enum.KeyCode.Unknown, NoStun = Enum.KeyCode.Unknown, RemoteBypass = Enum.KeyCode.Unknown, GodMode = Enum.KeyCode.Unknown,
+    NahGod = Enum.KeyCode.Unknown, 
     ThirdPerson = Enum.KeyCode.Unknown, ShiftLock = Enum.KeyCode.Unknown, InstantPrompt = Enum.KeyCode.Unknown, AutoPrompt = Enum.KeyCode.Unknown
 }
 
@@ -104,7 +105,7 @@ local S = {
     isFOV = false, isZoom = false, mouseTpMode = nil, isModernFling = false, isFlingActive = false, isTouchFling = false, 
     isNanFling = false, nanMode = "area", isPushing = false, isSpinning = false, isFollowing = false, nanFlingTarget = nil, 
     isSpinFlingV2 = false, isAntiLagback = false, isBlink = false,
-    isNoStun = false, isRemoteBypass = false, isGodMode = false, isRemoteBlock = false, isForceThirdPerson = false, isUnlockShiftLock = false,
+    isNoStun = false, isRemoteBypass = false, isGodMode = false, isNahGod = false, isRemoteBlock = false, isForceThirdPerson = false, isUnlockShiftLock = false,
     isInstantPrompt = false, isAutoPrompt = false
 }
 
@@ -200,15 +201,17 @@ mkLbl(UI.cMisc, "--- Visuals & Camera ---", 11)
 UI.espBtn = mkRow(UI.cMisc, "Toggle 2D ESP", "ESP", 12)
 UI.tracerBtn = mkBtn(UI.cMisc, "ESP Tracers: ON", T.ElemBG, 13)
 UI.fovBox = mkInp(UI.cMisc, "Field of View (Def: 70)", 14); UI.fovBox.Text = "70"; mkPre(UI.cMisc, "FOV:", {70, 90, 120}, UI.fovBox, 15);
-UI.fovBtn = mkRow(UI.cMisc, "Force FOV", "FOV", 16); 
+UI.fovBtn = mkRow(UI.cMisc, "Force FOV", "FOV", 16);
 UI.zoomBtn = mkRow(UI.cMisc, "Unlock Max Zoom", "MaxZoom", 17)
 UI.thirdPersonBtn = mkRow(UI.cMisc, "Unlock 3rd Person", "ThirdPerson", 18)
 UI.shiftLockBtn = mkRow(UI.cMisc, "Unlock Shiftlock/Mouse", "ShiftLock", 19)
+
 mkLbl(UI.cMisc, "--- Server & Protection ---", 20)
 UI.antiFlingBtn = mkRow(UI.cMisc, "Toggle Anti-Fling", "AntiFling", 21)
 UI.bypassAcBtn = mkRow(UI.cMisc, "Bypass Walk/Jump AC", "BypassAC", 22)
 UI.noStunBtn = mkRow(UI.cMisc, "Strong No Stun", "NoStun", 23)
 UI.godModeBtn = mkRow(UI.cMisc, "God Mode (Local)", "GodMode", 24)
+UI.nahGodBtn = mkRow(UI.cMisc, "Nah God (NaN Health)", "NahGod", 24.5) 
 UI.remoteBlockBtn = mkRow(UI.cMisc, "Block Remote Kick/Ban", "RemoteBlock", 25)
 UI.remoteBypassBtn = mkRow(UI.cMisc, "Universal Remote Bypass", "RemoteBypass", 26)
 UI.nukeAcBtn = mkBtn(UI.cMisc, "Nuke Anti-Cheat (Universal)", T.ElemBG, 27)
@@ -229,35 +232,27 @@ UI.mouseTpStepBtn = mkBtn(UI.cTP, "Ctrl+Click: Step Mode", T.ElemBG, 12)
 UI.mouseTpPivotBtn = mkBtn(UI.cTP, "Ctrl+Click: Pivot Mode", T.ElemBG, 13)
 UI.mouseTpSpeedBox = mkInp(UI.cTP, "Click TP Speed (Def: 150)", 14); UI.mouseTpSpeedBox.Text = "150"; mkPre(UI.cTP, "Speed:", {100, 150, 300}, UI.mouseTpSpeedBox, 15)
 
-UI.emoteBtns = {};
-local emoteNames = {"wave","point","dance","dance2","dance3","laugh","cheer","salute","stadium","tilt","shrug"}
+UI.emoteBtns = {}; local emoteNames = {"wave","point","dance","dance2","dance3","laugh","cheer","salute","stadium","tilt","shrug"}
 for i, n in ipairs(emoteNames) do 
     local dispName = n:sub(1,1):upper() .. n:sub(2)
     UI.emoteBtns[n] = mkBtn(UI.cEmotes, dispName, T.ElemBG, i) 
 end
 
-mkLbl(UI.cTroll, "Target Player:", 1);
-UI.trollBox = mkInp(UI.cTroll, "Target Player Name", 2); local _, _, refreshPlayerList = mkList(UI.cTroll, UI.trollBox, 3);
-UI.refreshBtn = mkBtn(UI.cTroll, "Refresh Player List", T.ElemBG, 4)
+mkLbl(UI.cTroll, "Target Player:", 1); UI.trollBox = mkInp(UI.cTroll, "Target Player Name", 2); local _, _, refreshPlayerList = mkList(UI.cTroll, UI.trollBox, 3); UI.refreshBtn = mkBtn(UI.cTroll, "Refresh Player List", T.ElemBG, 4)
 Players.PlayerAdded:Connect(function() task.wait(0.1); refreshPlayerList(); tpRefresh() end); Players.PlayerRemoving:Connect(function() task.wait(0.1); refreshPlayerList(); tpRefresh() end); refreshPlayerList(); tpRefresh()
 
-mkLbl(UI.cTroll, "--- Freeze & Fling ---", 5); UI.freezeBtn = mkRow(UI.cTroll, "Freeze Player", "Freeze", 6);
-UI.unfrzBtn = mkBtn(UI.cTroll, "Unfreeze Player", T.ElemBG, 7)
+mkLbl(UI.cTroll, "--- Freeze & Fling ---", 5); UI.freezeBtn = mkRow(UI.cTroll, "Freeze Player", "Freeze", 6); UI.unfrzBtn = mkBtn(UI.cTroll, "Unfreeze Player", T.ElemBG, 7)
 UI.spinFlingV2Btn = mkBtn(UI.cTroll, "FE Spin Fling v2", T.ElemBG, 8)
-UI.modernFlingBtn = mkBtn(UI.cTroll, "Modern Fling: OFF", T.ElemBG, 9);
-UI.flingBtn = mkBtn(UI.cTroll, "Classic Fling Player", T.ElemBG, 10); UI.touchFlingBtn = mkBtn(UI.cTroll, "Touch Fling (Toggle)", T.ElemBG, 11)
-mkLbl(UI.cTroll, "--- NaN Fling ---", 12);
-UI.nanModeBtn = mkBtn(UI.cTroll, "Mode: Area (Nearby)", T.ElemBG, 13); 
+UI.modernFlingBtn = mkBtn(UI.cTroll, "Modern Fling: OFF", T.ElemBG, 9); UI.flingBtn = mkBtn(UI.cTroll, "Classic Fling Player", T.ElemBG, 10); UI.touchFlingBtn = mkBtn(UI.cTroll, "Touch Fling (Toggle)", T.ElemBG, 11)
+mkLbl(UI.cTroll, "--- NaN Fling ---", 12); UI.nanModeBtn = mkBtn(UI.cTroll, "Mode: Area (Nearby)", T.ElemBG, 13); 
 UI.nanFlingBtn = mkRow(UI.cTroll, "NaN Fling (Toggle)", "NanFling", 14)
 mkLbl(UI.cTroll, "--- Welder ---", 15)
 local function mkPF(ord) local f = Instance.new("Frame", UI.cTroll); f.Size, f.BackgroundTransparency, f.LayoutOrder = UDim2.new(0.9, 0, 0, 30), 1, ord; f.ZIndex = 7; local l = Instance.new("UIListLayout", f); l.FillDirection, l.Padding, l.SortOrder = Enum.FillDirection.Horizontal, UDim.new(0, 4), Enum.SortOrder.LayoutOrder; return f end
 local function mkPB(p, txt, ord) local b = Instance.new("TextButton", p); b.Size, b.BackgroundColor3, b.TextColor3, b.Font, b.TextSize, b.Text, b.LayoutOrder = UDim2.new(0, 60, 1, 0), T.ElemBG, T.TextMain, Enum.Font.GothamBold, 11, txt, ord; b.ZIndex = 8; Instance.new("UICorner", b).CornerRadius = UDim.new(0, 4); return b end
 local wF1 = mkPF(16); UI.weldBangBtn = mkPB(wF1,"Bang",1); UI.weldStandBtn = mkPB(wF1,"Stand",2); UI.weldAttackBtn = mkPB(wF1,"Attack",3); UI.weldHeadBtn = mkPB(wF1,"Head",4)
 local wF2 = mkPF(17); UI.weldBackBtn = mkPB(wF2,"Back",1); UI.weldCarpetBtn = mkPB(wF2,"Carpet",2); UI.weldBehindBtn = mkPB(wF2,"Behind",3); UI.weldCustomBtn = mkPB(wF2,"Custom",4)
-local wF3 = mkPF(18); UI.weldPushBtn = mkPB(wF3,"Push",1); UI.weldUnweldBtn = mkPB(wF3,"Unweld",2);
-UI.weldPushBtn.Size, UI.weldUnweldBtn.Size = UDim2.new(0, 90, 1, 0), UDim2.new(0, 90, 1, 0)
-mkLbl(UI.cTroll, "--- Misc ---", 19);
-UI.spinBtn = mkBtn(UI.cTroll, "Spin Player (Toggle)", T.ElemBG, 20); UI.followBtn = mkBtn(UI.cTroll, "Follow Player (Sticky)", T.ElemBG, 21)
+local wF3 = mkPF(18); UI.weldPushBtn = mkPB(wF3,"Push",1); UI.weldUnweldBtn = mkPB(wF3,"Unweld",2); UI.weldPushBtn.Size, UI.weldUnweldBtn.Size = UDim2.new(0, 90, 1, 0), UDim2.new(0, 90, 1, 0)
+mkLbl(UI.cTroll, "--- Misc ---", 19); UI.spinBtn = mkBtn(UI.cTroll, "Spin Player (Toggle)", T.ElemBG, 20); UI.followBtn = mkBtn(UI.cTroll, "Follow Player (Sticky)", T.ElemBG, 21)
 
 local tabs = {{btn = UI.tabMain, c = UI.cMain, x = 0}, {btn = UI.tabTP, c = UI.cTP, x = 0.2}, {btn = UI.tabMisc, c = UI.cMisc, x = 0.4}, {btn = UI.tabEmotes, c = UI.cEmotes, x = 0.6}, {btn = UI.tabTroll, c = UI.cTroll, x = 0.8}}
 local function switchTab(ab, ac, ax) for _,t in ipairs(tabs) do t.c.Visible = false; t.btn.BackgroundTransparency = 1; t.btn.TextColor3 = (t.btn == UI.tabTroll) and T.Troll or T.TextDim; t.btn.Font = Enum.Font.GothamSemibold end; ac.Visible = true; ab.TextColor3 = (ab == UI.tabTroll) and T.Troll or T.TextMain; ab.Font = Enum.Font.GothamBold; tabInd.Position, tabInd.BackgroundColor3 = UDim2.new(ax, 5, 1, -2), (ab == UI.tabTroll) and T.Troll or T.AccentON end
@@ -271,58 +266,19 @@ local function setBtn(btn, on)
     if tBtn then tBtn.BackgroundColor3, tBtn.TextColor3 = on and T.AccentON or T.ElemBG, on and Color3.fromRGB(25,25,30) or T.TextMain end 
 end
 
--- [SERVER-SIDED SPOOF AVATAR - ORIGINAL LOGIC]
 local function SpoofAvatar(targetUsername, btnObj)
     local char = player.Character
     local humanoid = char and char:FindFirstChildOfClass("Humanoid")
-    
-    if not humanoid then 
-        if btnObj then btnObj.Text = "Boii you gyat no Humanoid" end
-        return
-    end
-
-    local successId, targetId = pcall(function() 
-        return Players:GetUserIdFromNameAsync(targetUsername) 
-    end)
-    
-    if not successId then
-        if targetId then
-            warn(targetId)
-        end
-        if btnObj then btnObj.Text = "L typo boi 🤣🤣" end
-        return 
-    end
-
-    local successDesc, targetDesc = pcall(function() 
-        return Players:GetHumanoidDescriptionFromUserIdAsync(targetId) 
-    end)
-
+    if not humanoid then if btnObj then btnObj.Text = "Boii you gyat no Humanoid" end return end
+    local successId, targetId = pcall(function() return Players:GetUserIdFromNameAsync(targetUsername) end)
+    if not successId then if targetId then warn(targetId) end if btnObj then btnObj.Text = "L typo boi 🤣🤣" end return end
+    local successDesc, targetDesc = pcall(function() return Players:GetHumanoidDescriptionFromUserIdAsync(targetId) end)
     if successDesc and targetDesc then
         local current = humanoid:GetAppliedDescription()
-        targetDesc.HeightScale = current.HeightScale
-        targetDesc.WidthScale = current.WidthScale
-        targetDesc.DepthScale = current.DepthScale
-        targetDesc.HeadScale = current.HeadScale
-        targetDesc.ProportionScale = current.ProportionScale
-        targetDesc.BodyTypeScale = current.BodyTypeScale
-
-        for _, item in ipairs(char:GetChildren()) do
-            if item:IsA("Accessory") then
-                item:Destroy()
-            end
-            if item:IsA("Shirt") or item:IsA("Pants") then
-                item:Destroy()
-            end
-        end
-
-        local successApply = pcall(function()
-            humanoid:ApplyDescriptionClientServer(targetDesc)
-        end)
-        
-        if not successApply then
-            humanoid:ApplyDescriptionResetAsync(targetDesc)
-        end
-        
+        targetDesc.HeightScale, targetDesc.WidthScale, targetDesc.DepthScale, targetDesc.HeadScale, targetDesc.ProportionScale, targetDesc.BodyTypeScale = current.HeightScale, current.WidthScale, current.DepthScale, current.HeadScale, current.ProportionScale, current.BodyTypeScale
+        for _, item in ipairs(char:GetChildren()) do if item:IsA("Accessory") or item:IsA("Shirt") or item:IsA("Pants") then item:Destroy() end end
+        local successApply = pcall(function() humanoid:ApplyDescriptionClientServer(targetDesc) end)
+        if not successApply then humanoid:ApplyDescriptionResetAsync(targetDesc) end
         if btnObj then btnObj.Text = "Aura Replicated!" end
     else
         if btnObj then btnObj.Text = "insufficient aura 🤣☠️" end
@@ -339,7 +295,6 @@ UI.spoofBtn.MouseButton1Click:Connect(function()
     end)
 end)
 
--- [CÁC TÍNH NĂNG KHÁC]
 local origHoldDurations = {}
 local function ToggleInstantPrompt()
     S.isInstantPrompt = not S.isInstantPrompt
@@ -366,10 +321,68 @@ local function ToggleAutoPrompt()
         track("autoPrompt", ProximityPromptService.PromptShown:Connect(function(prompt)
             if fireproximityprompt then
                 task.spawn(function() task.wait(0.05); pcall(function() fireproximityprompt(prompt) end) end)
-            else warn("Executor của bạn không hỗ trợ fireproximityprompt!"); ToggleAutoPrompt() end
+            else warn("[LAI ADMIN] Your executor does not support fireproximityprompt!"); ToggleAutoPrompt() end
         end))
     else untrack("autoPrompt") end
 end
+
+-- ============================================================
+-- NAH GOD LOGIC
+-- ============================================================
+local function applyNahGod()
+    local character = player.Character
+    if not character then return end
+    
+    local humanoid = character:FindFirstChildOfClass("Humanoid")
+    if not humanoid then return end
+
+    humanoid:SetStateEnabled(15, false)
+    humanoid:SetStateEnabled(1, false)
+    humanoid:SetStateEnabled(0, false)
+
+    if replicatesignal then
+        pcall(function() replicatesignal(player.Kill) end)
+    else
+        warn("[LAI ADMIN] Executor does not support replicatesignal :(")
+    end
+
+    local success, err = pcall(function() 
+        if sethiddenproperty then
+            sethiddenproperty(humanoid, "maxHealth", 0/0)
+            sethiddenproperty(humanoid, "MaxHealth", 0/0)
+            sethiddenproperty(humanoid, "Health_XML", 0/0)
+            sethiddenproperty(humanoid, "Health", 0/0)
+        elseif setscriptable then
+            setscriptable(humanoid, "maxHealth", true)
+            setscriptable(humanoid, "Health_XML", true)
+            humanoid.maxHealth = 0/0
+            humanoid.MaxHealth = 0/0
+            humanoid.Health_XML = 0/0
+            humanoid.Health = 0/0
+            task.wait()
+            setscriptable(humanoid, "maxHealth", false)
+            setscriptable(humanoid, "Health_XML", false)
+        else
+            humanoid.MaxHealth = 0/0
+            humanoid.Health = 0/0
+        end
+    end)
+
+    if not success then 
+        warn("[LAI ADMIN] Nah God Error: " .. tostring(err)) 
+    end
+end
+
+local function ToggleNahGod()
+    S.isNahGod = not S.isNahGod
+    setBtn(UI.nahGodBtn, S.isNahGod)
+    if S.isNahGod then
+        applyNahGod()
+    else
+        pcall(function() player.Character.Humanoid.Health = 0 end)
+    end
+end
+UI.nahGodBtn.MouseButton1Click:Connect(ToggleNahGod)
 
 local oldIndex, oldNewindex, oldNamecall; local hooksSetup = { index = false, namecall = false }
 local function setupIndexHooks()
@@ -435,17 +448,7 @@ local function gm_worldDir(mv) local cam = workspace.CurrentCamera; if not cam t
 
 local function ToggleWalkSpeed() S.isWalk = not S.isWalk; setBtn(UI.walkBtn, S.isWalk); untrack("walk"); untrack("godmove"); gm_unhookController(); pcall(function() player.Character.Humanoid.WalkSpeed = 16 end); for _, name in ipairs(SUNK_ACTIONS) do pcall(function() CAS:UnbindAction(name) end) end; if S.isWalk then if S.speedMode == "Classic" or S.speedMode == "Stealth" then track("walk", RunService.RenderStepped:Connect(function(dt) pcall(function() local hum = player.Character.Humanoid; local hrp = player.Character.HumanoidRootPart; local targetSpeed = tonumber(UI.walkBox.Text) or 16; if S.speedMode == "Classic" then hum.WalkSpeed = targetSpeed else hum.WalkSpeed = 16; if targetSpeed > 16 and hum.MoveDirection.Magnitude > 0 then hrp.CFrame = hrp.CFrame + (hum.MoveDirection * (targetSpeed - 16) * dt) end end end) end)) elseif S.speedMode == "GodMove" then local hum = player.Character:FindFirstChild("Humanoid"); local hrp = player.Character:FindFirstChild("HumanoidRootPart"); if not hum or not hrp then return end; for _, name in ipairs(SUNK_ACTIONS) do pcall(function() CAS:BindAction(name, function() return Enum.ContextActionResult.Sink end, false, Enum.KeyCode.Unknown) end) end; track("godmove", RunService.Heartbeat:Connect(function() pcall(function() local targetSpeed = tonumber(UI.walkBox.Text) or 16; hum.WalkSpeed = 16; for _, s in ipairs(BLOCKED_STATES) do pcall(function() hum:SetStateEnabled(s, false) end) end; for _, s in ipairs(ALLOWED_STATES) do pcall(function() hum:SetStateEnabled(s, true) end) end; gm_hookController(); local mv = gm_getMoveVec(); if mv.Magnitude <= 0 then return end; local dir = gm_worldDir(mv); if not dir then return end; local cv = hrp.AssemblyLinearVelocity; local st = hum:GetState(); local vx, vz = dir.X * targetSpeed, dir.Z * targetSpeed; if st == Enum.HumanoidStateType.Freefall or st == Enum.HumanoidStateType.Jumping or st == Enum.HumanoidStateType.Swimming or st == Enum.HumanoidStateType.Climbing then hrp.AssemblyLinearVelocity = Vector3.new(vx, cv.Y, vz); return end; if st ~= Enum.HumanoidStateType.Running and st ~= Enum.HumanoidStateType.RunningNoPhysics then if st ~= gm_lastState then gm_lastState = st; pcall(function() hum:ChangeState(Enum.HumanoidStateType.Running) end) end else gm_lastState = nil end; hrp.AssemblyLinearVelocity = Vector3.new(vx, cv.Y, vz) end) end)) end end end
 
-local function ToggleBlink() 
-    S.isBlink = not S.isBlink; 
-    if S.isBlink then 
-        pcall(function() settings():GetService("NetworkSettings").IncomingReplicationLag = 10 end); 
-        UI.blinkBtn.BackgroundColor3 = T.Warn; 
-        UI.blinkBtn.TextColor3 = Color3.fromRGB(20,20,20); 
-    else 
-        pcall(function() settings():GetService("NetworkSettings").IncomingReplicationLag = 0 end); 
-        setBtn(UI.blinkBtn, false) 
-    end 
-end
+local function ToggleBlink() S.isBlink = not S.isBlink; if S.isBlink then pcall(function() settings():GetService("NetworkSettings").IncomingReplicationLag = 10 end); UI.blinkBtn.BackgroundColor3 = T.Warn; UI.blinkBtn.TextColor3 = Color3.fromRGB(20,20,20); else pcall(function() settings():GetService("NetworkSettings").IncomingReplicationLag = 0 end); setBtn(UI.blinkBtn, false) end end
 
 local function applyJump() pcall(function() player.Character.Humanoid.UseJumpPower = true; player.Character.Humanoid.JumpPower = math.clamp(tonumber(UI.jumpBox.Text) or 50, 0, 1000) end) end
 local function ToggleJumpPower() S.isJump = not S.isJump; setBtn(UI.jumpBtn, S.isJump); if S.isJump then applyJump(); track("jump", RunService.Heartbeat:Connect(applyJump)) else untrack("jump"); pcall(function() player.Character.Humanoid.UseJumpPower = true; player.Character.Humanoid.JumpPower = 50 end) end end
@@ -477,30 +480,7 @@ local function StartMouseTP(mode, btn, atext) if S.mouseTpMode == mode then Stop
 UI.mouseTpBtn.MouseButton1Click:Connect(function() StartMouseTP("Tween", UI.mouseTpBtn, "Active: Tween Mode") end); UI.mouseTpStepBtn.MouseButton1Click:Connect(function() StartMouseTP("Step", UI.mouseTpStepBtn, "Active: Step Mode") end); UI.mouseTpPivotBtn.MouseButton1Click:Connect(function() StartMouseTP("Pivot", UI.mouseTpPivotBtn, "Active: Pivot Mode") end)
 
 local selfFrzCF = nil
-local function ToggleSelfFreeze() 
-    S.isSelfFrozen = not S.isSelfFrozen; 
-    setBtn(UI.selfFrzBtn, S.isSelfFrozen); 
-    local hrp = player.Character and player.Character:FindFirstChild("HumanoidRootPart"); 
-    if S.isSelfFrozen then 
-        if not hrp then S.isSelfFrozen = false; setBtn(UI.selfFrzBtn, false); return end; 
-        selfFrzCF = hrp.CFrame; 
-        hrp.AssemblyLinearVelocity, hrp.AssemblyAngularVelocity, hrp.Anchored = Vector3.zero, Vector3.zero, true; 
-        pcall(function() player.Character.Humanoid.WalkSpeed, player.Character.Humanoid.JumpPower = 0, 0 end); 
-        UI.selfFrzBtn.Text = "Unfreeze Self"; 
-        track("sFrz", RunService.Heartbeat:Connect(function() 
-            pcall(function() 
-                local h2 = player.Character.HumanoidRootPart; h2.Anchored, h2.AssemblyLinearVelocity, h2.AssemblyAngularVelocity = true, Vector3.zero, Vector3.zero; 
-                if (h2.Position - selfFrzCF.Position).Magnitude > 0.5 then h2.CFrame = selfFrzCF end 
-            end) 
-        end)) 
-    else 
-        untrack("sFrz"); 
-        if hrp then hrp.Anchored = false end; 
-        pcall(function() player.Character.Humanoid.WalkSpeed = S.isWalk and (tonumber(UI.walkBox.Text) or 16) or 16; player.Character.Humanoid.JumpPower = S.isJump and (tonumber(UI.jumpBox.Text) or 50) or 50 end); 
-        selfFrzCF = nil; 
-        UI.selfFrzBtn.Text = "Freeze Self" 
-    end 
-end
+local function ToggleSelfFreeze() S.isSelfFrozen = not S.isSelfFrozen; setBtn(UI.selfFrzBtn, S.isSelfFrozen); local hrp = player.Character and player.Character:FindFirstChild("HumanoidRootPart"); if S.isSelfFrozen then if not hrp then S.isSelfFrozen = false; setBtn(UI.selfFrzBtn, false); return end; selfFrzCF = hrp.CFrame; hrp.AssemblyLinearVelocity, hrp.AssemblyAngularVelocity, hrp.Anchored = Vector3.zero, Vector3.zero, true; pcall(function() player.Character.Humanoid.WalkSpeed, player.Character.Humanoid.JumpPower = 0, 0 end); UI.selfFrzBtn.Text = "Unfreeze Self"; track("sFrz", RunService.Heartbeat:Connect(function() pcall(function() local h2 = player.Character.HumanoidRootPart; h2.Anchored, h2.AssemblyLinearVelocity, h2.AssemblyAngularVelocity = true, Vector3.zero, Vector3.zero; if (h2.Position - selfFrzCF.Position).Magnitude > 0.5 then h2.CFrame = selfFrzCF end end) end)) else untrack("sFrz"); if hrp then hrp.Anchored = false end; pcall(function() player.Character.Humanoid.WalkSpeed = S.isWalk and (tonumber(UI.walkBox.Text) or 16) or 16; player.Character.Humanoid.JumpPower = S.isJump and (tonumber(UI.jumpBox.Text) or 50) or 50 end); selfFrzCF = nil; UI.selfFrzBtn.Text = "Freeze Self" end end
 
 local function ToggleAntiFling() S.isAntiFling = not S.isAntiFling; setBtn(UI.antiFlingBtn, S.isAntiFling); if S.isAntiFling then track("aFling", RunService.Stepped:Connect(function() pcall(function() local hrp = player.Character.HumanoidRootPart; if hrp.AssemblyLinearVelocity.Magnitude > 250 or hrp.AssemblyAngularVelocity.Magnitude > 50 then hrp.AssemblyLinearVelocity, hrp.AssemblyAngularVelocity = Vector3.zero, Vector3.zero end end); for _, p in ipairs(Players:GetPlayers()) do if p ~= player and p.Character then for _, pt in ipairs(p.Character:GetDescendants()) do if pt:IsA("BasePart") and pt.CanCollide then pt.CanCollide = false end end end end end)) else untrack("aFling") end end
 local fInvCF, rot90 = CFrame.new(), CFrame.Angles(math.rad(90), 0, 0)
@@ -524,46 +504,8 @@ local NAN_VEC = Vector3.new(0/0, 0/0, 0/0)
 local function applyNanFling(tHrp, myHrp, myHum) myHrp.CFrame, myHrp.AssemblyLinearVelocity, myHrp.AssemblyAngularVelocity = tHrp.CFrame, NAN_VEC, NAN_VEC; pcall(function() myHum.PlatformStand = true; myHum:Move(NAN_VEC) end); if hasSHP then pcall(function() sethiddenproperty(myHrp, "PhysicsRepRootPart", tHrp) end) end end
 
 local function ToggleNanFling() 
-    S.isNanFling = not S.isNanFling; 
-    if S.isNanFling then 
-        if S.nanMode == "target" then 
-            local t = FindPlayer(UI.trollBox.Text); 
-            if not (t and t.Character and t.Character:FindFirstChild("HumanoidRootPart")) then 
-                UI.trollBox.Text = "Not found!"; task.wait(1); UI.trollBox.Text = ""; S.isNanFling = false; return 
-            end; 
-            S.nanFlingTarget = t 
-        end; 
-        
-        UI.nanFlingBtn.BackgroundColor3 = T.Troll;
-        UI.nanFlingBtn.TextColor3 = Color3.fromRGB(20,20,20);
-        UI.nanFlingBtn.Text = "NaN Fling: ON" .. (hasSHP and " [SHP]" or ""); 
-        
-        S.nanFlingConn = track("nanFling", RunService.Heartbeat:Connect(function() 
-            local myChar = player.Character; local myHum, myHrp = myChar and myChar:FindFirstChildOfClass("Humanoid"), myChar and myChar:FindFirstChild("HumanoidRootPart"); 
-            if not myHrp then return end; 
-            if S.nanMode == "target" then 
-                if not (S.nanFlingTarget and S.nanFlingTarget.Character) then ToggleNanFling(); return end; 
-                local tHrp = S.nanFlingTarget.Character:FindFirstChild("HumanoidRootPart"); 
-                if tHrp then applyNanFling(tHrp, myHrp, myHum) end 
-            else 
-                for _, p in ipairs(Players:GetPlayers()) do 
-                    if p ~= player and p.Character then 
-                        local tHrp = p.Character:FindFirstChild("HumanoidRootPart"); 
-                        if tHrp and (myHrp.Position - tHrp.Position).Magnitude <= 15 then applyNanFling(tHrp, myHrp, myHum) end 
-                    end 
-                end 
-            end 
-        end)) 
-    else 
-        untrack("nanFling"); S.nanFlingConn, S.nanFlingTarget = nil, nil; 
-        pcall(function() player.Character.Humanoid.PlatformStand = false end); 
-        
-        UI.nanFlingBtn.BackgroundColor3 = T.ElemBG;
-        UI.nanFlingBtn.TextColor3 = T.TextMain;
-        UI.nanFlingBtn.Text = "NaN Fling (Toggle)" 
-    end 
+    S.isNanFling = not S.isNanFling; if S.isNanFling then if S.nanMode == "target" then local t = FindPlayer(UI.trollBox.Text); if not (t and t.Character and t.Character:FindFirstChild("HumanoidRootPart")) then UI.trollBox.Text = "Not found!"; task.wait(1); UI.trollBox.Text = ""; S.isNanFling = false; return end; S.nanFlingTarget = t end; UI.nanFlingBtn.BackgroundColor3 = T.Troll; UI.nanFlingBtn.TextColor3 = Color3.fromRGB(20,20,20); UI.nanFlingBtn.Text = "NaN Fling: ON" .. (hasSHP and " [SHP]" or ""); S.nanFlingConn = track("nanFling", RunService.Heartbeat:Connect(function() local myChar = player.Character; local myHum, myHrp = myChar and myChar:FindFirstChildOfClass("Humanoid"), myChar and myChar:FindFirstChild("HumanoidRootPart"); if not myHrp then return end; if S.nanMode == "target" then if not (S.nanFlingTarget and S.nanFlingTarget.Character) then ToggleNanFling(); return end; local tHrp = S.nanFlingTarget.Character:FindFirstChild("HumanoidRootPart"); if tHrp then applyNanFling(tHrp, myHrp, myHum) end else for _, p in ipairs(Players:GetPlayers()) do if p ~= player and p.Character then local tHrp = p.Character:FindFirstChild("HumanoidRootPart"); if tHrp and (myHrp.Position - tHrp.Position).Magnitude <= 15 then applyNanFling(tHrp, myHrp, myHum) end end end end end)) else untrack("nanFling"); S.nanFlingConn, S.nanFlingTarget = nil, nil; pcall(function() player.Character.Humanoid.PlatformStand = false end); UI.nanFlingBtn.BackgroundColor3 = T.ElemBG; UI.nanFlingBtn.TextColor3 = T.TextMain; UI.nanFlingBtn.Text = "NaN Fling (Toggle)" end 
 end
-
 UI.nanModeBtn.MouseButton1Click:Connect(function() S.nanMode = S.nanMode == "area" and "target" or "area"; UI.nanModeBtn.Text = S.nanMode == "area" and "Mode: Area (Nearby)" or "Mode: Target"; UI.nanModeBtn.BackgroundColor3 = S.nanMode == "area" and T.ElemBG or T.AccentON end)
 
 local curW, wThrd, WG = nil, nil, randName(12)
@@ -606,7 +548,10 @@ local function ToggleThirdPerson()
     if S.isForceThirdPerson then player.CameraMode = Enum.CameraMode.Classic; player.CameraMaxZoomDistance = 128 end
 end
 
-local function Panic() for l, _ in pairs(Connections) do untrack(l) end; if S.isFlying then StopFly(); setBtn(UI.flyBtn, false) end; pcall(function() local h = player.Character.Humanoid; h.WalkSpeed, h.UseJumpPower, h.JumpPower = 16, true, 50 end); setBtn(UI.walkBtn, false); setBtn(UI.jumpBtn, false); setBtn(UI.tpJumpBtn, false); if S.isNoclip then ToggleNoclip() end; if S.isESP then ToggleESP() end; if S.isFakeInvis then ToggleFakeInvis() end; if S.mouseTpMode then StopMouseTP() end; if S.isAntiFling then ToggleAntiFling() end; if S.isFOV then ToggleFOV() end; if S.isZoom then ToggleZoom() end; if S.isBlink then ToggleBlink() end; if S.isNanFling then ToggleNanFling() end; if S.isInstantPrompt then ToggleInstantPrompt() end; if S.isAutoPrompt then ToggleAutoPrompt() end; stpW(); titleLbl.Text, titleLbl.TextColor3 = "PANIC RESET", T.Troll; task.delay(1.5, function() titleLbl.Text, titleLbl.TextColor3 = "LAI ADMIN", T.TextMain end) end
+local function Panic() for l, _ in pairs(Connections) do untrack(l) end; if S.isFlying then StopFly(); setBtn(UI.flyBtn, false) end; pcall(function() local h = player.Character.Humanoid; h.WalkSpeed, h.UseJumpPower, h.JumpPower = 16, true, 50 end); setBtn(UI.walkBtn, false); setBtn(UI.jumpBtn, false); setBtn(UI.tpJumpBtn, false); if S.isNoclip then ToggleNoclip() end; if S.isESP then ToggleESP() end; if S.isFakeInvis then ToggleFakeInvis() end; if S.mouseTpMode then StopMouseTP() end; if S.isAntiFling then ToggleAntiFling() end; if S.isFOV then ToggleFOV() end; if S.isZoom then ToggleZoom() end; if S.isBlink then ToggleBlink() end; if S.isNanFling then ToggleNanFling() end; if S.isInstantPrompt then ToggleInstantPrompt() end; if S.isAutoPrompt then ToggleAutoPrompt() end;
+    if S.isNahGod then ToggleNahGod() end 
+    stpW(); titleLbl.Text, titleLbl.TextColor3 = "PANIC RESET", T.Troll; task.delay(1.5, function() titleLbl.Text, titleLbl.TextColor3 = "LAI ADMIN", T.TextMain end) 
+end
 
 track("input", UserInputService.InputBegan:Connect(function(i, gp) 
     if S.listenAct then 
@@ -624,6 +569,7 @@ track("input", UserInputService.InputBegan:Connect(function(i, gp)
     
     tr(keybinds.Fly, ToggleFly); tr(keybinds.WalkSpeed, ToggleWalkSpeed); tr(keybinds.JumpPower, ToggleJumpPower); tr(keybinds.InfJump, ToggleInfJump); tr(keybinds.Noclip, ToggleNoclip); tr(keybinds.ESP, ToggleESP); tr(keybinds.SelfFreeze, ToggleSelfFreeze); tr(keybinds.FakeInvis, ToggleFakeInvis); tr(keybinds.AntiFling, ToggleAntiFling); tr(keybinds.BypassAC, ToggleBypassAC); tr(keybinds.FOV, ToggleFOV); tr(keybinds.MaxZoom, ToggleZoom); tr(keybinds.AntiLagback, ToggleAntiLagback); tr(keybinds.TpJump, ToggleTpJump)
     tr(keybinds.Blink, ToggleBlink); tr(keybinds.NanFling, ToggleNanFling); tr(keybinds.RemoteBlock, ToggleRemoteBlock); tr(keybinds.NoStun, ToggleNoStun); tr(keybinds.RemoteBypass, ToggleRemoteBypass); tr(keybinds.GodMode, ToggleGodMode); tr(keybinds.ThirdPerson, ToggleThirdPerson); tr(keybinds.ShiftLock, ToggleShiftLock); tr(keybinds.InstantPrompt, ToggleInstantPrompt); tr(keybinds.AutoPrompt, ToggleAutoPrompt)
+    tr(keybinds.NahGod, ToggleNahGod) 
 
     if keybinds.Freeze ~= Enum.KeyCode.Unknown and i.KeyCode == keybinds.Freeze then local t = FindPlayer(UI.trollBox.Text); if t and t.Character then untrack("frz"); frozenTarget, frozenCF = t, t.Character.HumanoidRootPart.CFrame; track("frz", RunService.Heartbeat:Connect(function() pcall(function() frozenTarget.Character.HumanoidRootPart.CFrame = frozenCF end) end)); UI.freezeBtn.Text = "Frozen: " .. t.Name end end 
 end))
@@ -652,7 +598,6 @@ UI.shiftLockBtn.MouseButton1Click:Connect(ToggleShiftLock)
 UI.instantPromptBtn.MouseButton1Click:Connect(ToggleInstantPrompt)
 UI.autoPromptBtn.MouseButton1Click:Connect(ToggleAutoPrompt)
 
--- [NUKE AC]
 UI.nukeAcBtn.MouseButton1Click:Connect(function()
     local count = 0
     local susWords = {"kick", "ban", "exploit", "crash", "anticheat"}
@@ -670,7 +615,16 @@ UI.nukeAcBtn.MouseButton1Click:Connect(function()
     task.delay(3, function() UI.nukeAcBtn.Text = "Nuke Anti-Cheat (Universal)"; UI.nukeAcBtn.BackgroundColor3 = T.ElemBG; UI.nukeAcBtn.TextColor3 = T.TextMain end)
 end)
 
-player.CharacterAdded:Connect(function(char) task.wait(0.3); if S.isWalk then untrack("walk"); pcall(function() player.Character.Humanoid.WalkSpeed = 16 end); ToggleWalkSpeed() end; if S.isJump then applyJump() end; if S.isFlying then StopFly(); S.isFlying = false; task.wait(0.15); ToggleFly() end; if S.isNoclip then task.wait(0.1); nocParts = {}; for _,p in ipairs(char:GetDescendants()) do if p:IsA("BasePart") then nocParts[#nocParts+1] = p end end end; if S.isFakeInvis then S.isFakeInvis = false; untrack("fInvSim"); RunService:UnbindFromRenderStep("fInvCam"); task.wait(0.1); ToggleFakeInvis() end end)
+player.CharacterAdded:Connect(function(char) 
+    task.wait(0.3); 
+    if S.isWalk then untrack("walk"); pcall(function() player.Character.Humanoid.WalkSpeed = 16 end); ToggleWalkSpeed() end; 
+    if S.isJump then applyJump() end; 
+    if S.isFlying then StopFly(); S.isFlying = false; task.wait(0.15); ToggleFly() end; 
+    if S.isNoclip then task.wait(0.1); nocParts = {}; for _,p in ipairs(char:GetDescendants()) do if p:IsA("BasePart") then nocParts[#nocParts+1] = p end end end; 
+    if S.isFakeInvis then S.isFakeInvis = false; untrack("fInvSim"); RunService:UnbindFromRenderStep("fInvCam"); task.wait(0.1); ToggleFakeInvis() end 
+    if S.isNahGod then applyNahGod() end 
+end)
+
 UI.safeExitBtn.MouseButton1Click:Connect(function() pcall(function() UI.safeExitBtn.Text = "Disconnecting safely..."; local hrp = player.Character and player.Character:FindFirstChild("HumanoidRootPart"); if hrp then hrp.Anchored = true end; if S.isESP then ToggleESP() end; task.wait(1.5); game:Shutdown() end) end)
 
 S.speedMode = "GodMove"; UI.speedModeBtn.Text = "Speed Mode: GodMove (Physics)"
@@ -683,4 +637,4 @@ end)
 
 task.wait(0.5)
 pcall(function() ToggleAntiFling() end)
-warn("[LAI ADMIN v6.2] Final Fixes Applied! Enjoy!")
+warn("[LAI ADMIN v6.2.1] Nah God Edition Applied! Enjoy!")
