@@ -1,0 +1,555 @@
+-- ==========================================
+-- RAKNET DESYNC UI (Advanced + Custom Keybinds)
+-- ==========================================
+
+if not raknet then
+	game:GetService("StarterGui"):SetCore("SendNotification", {
+		Title = "Raknet Desync",
+		Text = "Your executor does not support RakNet library.",
+		Duration = 5,
+	})
+	return
+end
+
+local S = {
+	Workspace = cloneref(game:GetService("Workspace")),
+	RunService = cloneref(game:GetService("RunService")),
+	CoreGui = cloneref(game:GetService("CoreGui")),
+	Players = cloneref(game:GetService("Players")),
+    UIS = cloneref(game:GetService("UserInputService"))
+}
+
+-- Phím mặc định ban đầu
+local currentDesyncKey = Enum.KeyCode.Z
+local currentToggleUIKey = Enum.KeyCode.RightControl
+
+local ME = S.Players.LocalPlayer
+local Char = ME.Character
+
+ME.CharacterAdded:Connect(function(newChar)
+    Char = newChar
+end)
+
+local raknet_desync = {
+	showServerPosition = true,
+	showTracer = true,
+	showDistance = true,
+	pulseEffect = true,
+	ghostActive = false,
+	ghostModel = nil,
+	DesyncAdornment = nil,
+	glowColor = Color3.fromRGB(0, 200, 255),
+	outerColor = Color3.fromRGB(120, 230, 255),
+}
+
+if S.CoreGui:FindFirstChild("RaknetDesyncUI") then
+    S.CoreGui.RaknetDesyncUI:Destroy()
+end
+if S.CoreGui:FindFirstChild("RaknetDesyncAdornments") then
+    S.CoreGui.RaknetDesyncAdornments:Destroy()
+end
+
+raknet_desync.DesyncAdornment = Instance.new("Folder")
+raknet_desync.DesyncAdornment.Name = "RaknetDesyncAdornments"
+raknet_desync.DesyncAdornment.Parent = S.CoreGui
+
+function raknet_desync.clearDesyncAdornments()
+	for _, child in ipairs(raknet_desync.DesyncAdornment:GetChildren()) do
+		child:Destroy()
+	end
+end
+
+function raknet_desync.createGhostCharacter()
+	if raknet_desync.ghostModel then
+		raknet_desync.ghostActive = false
+		raknet_desync.ghostModel:Destroy()
+		raknet_desync.ghostModel = nil
+	end
+
+	raknet_desync.clearDesyncAdornments()
+
+	local realChar = Char
+	if not realChar then return end
+
+	raknet_desync.ghostActive = true
+	raknet_desync.ghostModel = Instance.new("Model", S.Workspace)
+	raknet_desync.ghostModel.Name = "DesyncGhost"
+
+	local distanceBillboard = nil
+	local ghostRootPart = nil
+	local adornments = {}
+	local partClones = {}
+
+	local layers = {
+		{ offset = Vector3.new(0, 0, 0), transparency = 0.15, color = raknet_desync.glowColor, zIndex = 11 },
+		{ offset = Vector3.new(0.08, 0.08, 0.08), transparency = 0.38, color = raknet_desync.glowColor, zIndex = 10 },
+		{ offset = Vector3.new(0.18, 0.18, 0.18), transparency = 0.60, color = raknet_desync.glowColor, zIndex = 9 },
+		{ offset = Vector3.new(0.35, 0.35, 0.35), transparency = 0.80, color = raknet_desync.outerColor, zIndex = 8 },
+	}
+
+	for _, part in ipairs(realChar:GetChildren()) do
+		if part:IsA("BasePart") and part.Name ~= "HumanoidRootPart" and part.Transparency < 1 then
+			local clone = Instance.new("Part", raknet_desync.ghostModel)
+			clone.Name = part.Name
+			clone.Size = part.Size
+			clone.CFrame = part.CFrame
+			clone.Anchored = true
+			clone.CanCollide = false
+			clone.CastShadow = false
+			clone.Transparency = 1
+
+			partClones[part.Name] = clone
+
+			for _, layer in ipairs(layers) do
+				local adorn = Instance.new("BoxHandleAdornment", raknet_desync.DesyncAdornment)
+				adorn.Size = clone.Size + layer.offset
+				adorn.AlwaysOnTop = true
+				adorn.ZIndex = layer.zIndex
+				adorn.Adornee = clone
+				adorn.Color3 = layer.color
+				adorn.Transparency = layer.transparency
+				table.insert(adornments, { adorn = adorn, baseT = layer.transparency })
+			end
+
+			if part.Name == "UpperTorso" or part.Name == "Torso" then
+				ghostRootPart = clone
+
+				local billboard = Instance.new("BillboardGui", raknet_desync.DesyncAdornment)
+				billboard.Name = "DesyncDistLabel"
+				billboard.Size = UDim2.new(0, 120, 0, 36)
+				billboard.StudsOffset = Vector3.new(0, 3.5, 0)
+				billboard.AlwaysOnTop = true
+				billboard.LightInfluence = 0
+				billboard.MaxDistance = 2000
+				billboard.Adornee = clone
+				billboard.Enabled = false
+
+				local frame = Instance.new("Frame", billboard)
+				frame.Size = UDim2.fromScale(1, 1)
+				frame.BackgroundColor3 = Color3.fromRGB(0, 0, 0)
+				frame.BackgroundTransparency = 0.3
+				frame.BorderSizePixel = 0
+				Instance.new("UICorner", frame).CornerRadius = UDim.new(0, 7)
+
+				local stroke = Instance.new("UIStroke", frame)
+				stroke.Color = raknet_desync.glowColor
+				stroke.Thickness = 1.5
+				stroke.Transparency = 0.1
+
+				local dot = Instance.new("Frame", frame)
+				dot.Size = UDim2.new(0, 7, 0, 7)
+				dot.Position = UDim2.new(0, 8, 0.5, -3)
+				dot.BackgroundColor3 = raknet_desync.glowColor
+				dot.BorderSizePixel = 0
+				Instance.new("UICorner", dot).CornerRadius = UDim.new(1, 0)
+
+				local label = Instance.new("TextLabel", frame)
+				label.Name = "DistText"
+				label.Size = UDim2.new(1, -22, 1, 0)
+				label.Position = UDim2.new(0, 22, 0, 0)
+				label.BackgroundTransparency = 1
+				label.Text = "Server ⊙ 0.0m"
+				label.TextColor3 = Color3.fromRGB(255, 255, 255)
+				label.TextSize = 13
+				label.Font = Enum.Font.GothamMedium
+				label.TextXAlignment = Enum.TextXAlignment.Left
+
+				distanceBillboard = billboard
+			end
+		end
+	end
+
+	if not (distanceBillboard and ghostRootPart) then
+		raknet_desync.ghostActive = false
+		raknet_desync.ghostModel:Destroy()
+		raknet_desync.ghostModel = nil
+		raknet_desync.clearDesyncAdornments()
+		return
+	end
+
+	local tracerPart = Instance.new("Part", raknet_desync.ghostModel)
+	tracerPart.Name = "DesyncTracer"
+	tracerPart.Anchored = true
+	tracerPart.CanCollide = false
+	tracerPart.CastShadow = false
+	tracerPart.Transparency = 1
+	tracerPart.Size = Vector3.new(0.05, 0.05, 1)
+
+	local tracerCylinder = Instance.new("CylinderHandleAdornment", raknet_desync.DesyncAdornment)
+	tracerCylinder.Radius = 0.04
+	tracerCylinder.Color3 = raknet_desync.glowColor
+	tracerCylinder.AlwaysOnTop = true
+	tracerCylinder.ZIndex = 8
+	tracerCylinder.Adornee = tracerPart
+
+	local tracerDash = Instance.new("CylinderHandleAdornment", raknet_desync.DesyncAdornment)
+	tracerDash.Radius = 0.04
+	tracerDash.Color3 = raknet_desync.outerColor
+	tracerDash.AlwaysOnTop = true
+	tracerDash.ZIndex = 9
+	tracerDash.Adornee = tracerPart
+
+	local tracerGlowMid = Instance.new("CylinderHandleAdornment", raknet_desync.DesyncAdornment)
+	tracerGlowMid.Radius = 0.09
+	tracerGlowMid.Color3 = raknet_desync.glowColor
+	tracerGlowMid.AlwaysOnTop = true
+	tracerGlowMid.ZIndex = 7
+	tracerGlowMid.Adornee = tracerPart
+
+	local tracerGlowOuter = Instance.new("CylinderHandleAdornment", raknet_desync.DesyncAdornment)
+	tracerGlowOuter.Radius = 0.18
+	tracerGlowOuter.Color3 = raknet_desync.outerColor
+	tracerGlowOuter.AlwaysOnTop = true
+	tracerGlowOuter.ZIndex = 6
+	tracerGlowOuter.Adornee = tracerPart
+
+	local camera = S.Workspace.CurrentCamera
+	local distLabel = distanceBillboard.Frame:FindFirstChild("DistText")
+	local lastVisible = nil
+	local VEC_UP = Vector3.new(0, 1, 0)
+
+	local connection
+	connection = S.RunService.Heartbeat:Connect(function()
+		if not raknet_desync.ghostActive then
+			connection:Disconnect()
+			raknet_desync.clearDesyncAdornments()
+			return
+		end
+
+		local localRoot = realChar:FindFirstChild("HumanoidRootPart")
+		if not localRoot then return end
+
+		local camCF = camera.CFrame
+		local ghostPos = ghostRootPart.Position
+		local localPos = localRoot.Position
+
+		local toGhost = (ghostPos - camCF.Position).Unit
+		local isVisible = camCF.LookVector:Dot(toGhost) > 0.3
+
+		if isVisible ~= lastVisible then
+			lastVisible = isVisible
+		end
+
+		distanceBillboard.Enabled = isVisible and raknet_desync.showDistance
+
+		if not isVisible then 
+			for _, entry in ipairs(adornments) do entry.adorn.Transparency = 1 end
+			tracerCylinder.Transparency = 1
+			tracerDash.Transparency = 1
+			tracerGlowMid.Transparency = 1
+			tracerGlowOuter.Transparency = 1
+			return 
+		end
+
+		if raknet_desync.pulseEffect then
+			local pulse = 0.5 + 0.5 * math.sin(tick() * 4)
+			local pulseAmt = { 0.08, 0.12, 0.15, 0.10 }
+			for i, entry in ipairs(adornments) do
+				local layerIdx = ((i - 1) % 4) + 1
+				entry.adorn.Transparency = entry.baseT - pulseAmt[layerIdx] * pulse
+			end
+		else
+			for _, entry in ipairs(adornments) do
+				entry.adorn.Transparency = entry.baseT
+			end
+		end
+
+		local dist = (ghostPos - localPos).Magnitude
+		distLabel.Text = string.format("Server ⊙ %.1fm", dist)
+
+		if raknet_desync.showTracer then
+			local fromPos = localPos
+			local toPos = ghostPos
+			local mid = (fromPos + toPos) / 2
+			local length = (toPos - fromPos).Magnitude
+			local direction = (toPos - fromPos).Unit
+
+			local right = VEC_UP:Cross(direction)
+			if right.Magnitude < 0.001 then right = Vector3.new(1, 0, 0) else right = right.Unit end
+			local up = direction:Cross(right).Unit
+
+			tracerPart.CFrame = CFrame.fromMatrix(mid, right, up, -direction)
+			tracerPart.Size = Vector3.new(0.05, 0.05, length)
+			tracerCylinder.Height = length
+			tracerDash.Height = length
+			tracerGlowMid.Height = length
+			tracerGlowOuter.Height = length
+
+			local t = tick()
+			local pulse2 = 0.5 + 0.5 * math.sin(t * math.pi * 4)
+			tracerCylinder.Transparency = 0.55 - 0.15 * pulse2
+			tracerDash.Transparency = 0.60 - 0.20 * pulse2
+			tracerGlowMid.Transparency = 0.65 - 0.18 * pulse2
+			tracerGlowOuter.Transparency = 0.82 - 0.12 * pulse2
+		else
+			tracerCylinder.Transparency = 1
+			tracerDash.Transparency = 1
+			tracerGlowMid.Transparency = 1
+			tracerGlowOuter.Transparency = 1
+		end
+	end)
+end
+
+function raknet_desync.destroyGhost()
+	if raknet_desync.ghostModel then
+		raknet_desync.ghostActive = false
+		raknet_desync.ghostModel:Destroy()
+		raknet_desync.ghostModel = nil
+		raknet_desync.clearDesyncAdornments()
+	end
+end
+
+function raknet_desync.rakhook(packet)
+	if packet.PacketId == 0x1B then
+		local buf = packet.AsBuffer
+		buffer.writeu32(buf, 1, 0xFFFFFFFF)
+		packet:SetData(buf)
+	end
+end
+
+-- ==========================================
+-- UI CONSTRUCTION & LOGIC
+-- ==========================================
+
+local ScreenGui = Instance.new("ScreenGui")
+ScreenGui.Name = "RaknetDesyncUI"
+ScreenGui.Parent = S.CoreGui
+ScreenGui.ResetOnSpawn = false
+
+local MainFrame = Instance.new("Frame")
+MainFrame.Name = "MainFrame"
+MainFrame.Size = UDim2.new(0, 220, 0, 480) -- Kéo dài bảng UI thêm 90px để chứa hệ thống cài phím
+MainFrame.Position = UDim2.new(0.5, -110, 0.5, -240)
+MainFrame.BackgroundColor3 = Color3.fromRGB(25, 25, 30)
+MainFrame.BorderSizePixel = 0
+MainFrame.Active = true
+MainFrame.Draggable = true
+MainFrame.Parent = ScreenGui
+
+local UICorner = Instance.new("UICorner")
+UICorner.CornerRadius = UDim.new(0, 8)
+UICorner.Parent = MainFrame
+
+local TitleLabel = Instance.new("TextLabel")
+TitleLabel.Size = UDim2.new(1, 0, 0, 40)
+TitleLabel.BackgroundColor3 = Color3.fromRGB(15, 15, 20)
+TitleLabel.TextColor3 = Color3.fromRGB(255, 255, 255)
+TitleLabel.Text = "RAKNET DESYNC"
+TitleLabel.Font = Enum.Font.GothamBold
+TitleLabel.TextSize = 16
+TitleLabel.Parent = MainFrame
+
+local TitleCorner = Instance.new("UICorner")
+TitleCorner.CornerRadius = UDim.new(0, 8)
+TitleCorner.Parent = TitleLabel
+
+local TitleFrameFix = Instance.new("Frame")
+TitleFrameFix.Size = UDim2.new(1, 0, 0, 10)
+TitleFrameFix.Position = UDim2.new(0, 0, 1, -10)
+TitleFrameFix.BackgroundColor3 = Color3.fromRGB(15, 15, 20)
+TitleFrameFix.BorderSizePixel = 0
+TitleFrameFix.Parent = TitleLabel
+
+local isDesynced = false
+
+local function CreateToggle(name, text, posY, defaultState)
+    local Button = Instance.new("TextButton")
+    Button.Name = name
+    Button.Size = UDim2.new(0.85, 0, 0, 35)
+    Button.Position = UDim2.new(0.075, 0, 0, posY)
+    Button.Font = Enum.Font.GothamMedium
+    Button.TextSize = 13
+    Button.TextColor3 = Color3.fromRGB(255, 255, 255)
+    Button.AutoButtonColor = true
+    Button.Parent = MainFrame
+    
+    Instance.new("UICorner", Button).CornerRadius = UDim.new(0, 6)
+
+    local function UpdateVisuals(state)
+        if state then
+            Button.Text = text .. ": ON"
+            Button.BackgroundColor3 = Color3.fromRGB(40, 180, 80)
+        else
+            Button.Text = text .. ": OFF"
+            Button.BackgroundColor3 = Color3.fromRGB(180, 50, 50)
+        end
+    end
+    
+    UpdateVisuals(defaultState)
+    return Button, UpdateVisuals
+end
+
+-- Toggles cơ bản
+local DesyncToggleBtn, UpdateDesyncBtn = CreateToggle("DesyncToggle", "Server Desync", 55, false)
+local SSPToggleBtn, UpdateSSPBtn = CreateToggle("SSPToggle", "Show Position", 95, raknet_desync.showServerPosition)
+local TracerToggleBtn, UpdateTracerBtn = CreateToggle("TracerToggle", "Show Tracer", 135, raknet_desync.showTracer)
+local DistToggleBtn, UpdateDistBtn = CreateToggle("DistToggle", "Show Distance", 175, raknet_desync.showDistance)
+local PulseToggleBtn, UpdatePulseBtn = CreateToggle("PulseToggle", "Pulse Animation", 215, raknet_desync.pulseEffect)
+
+-- Xử lý bật/tắt Desync chính
+local function SetDesyncState(newState)
+    isDesynced = newState
+    UpdateDesyncBtn(isDesynced)
+    
+    if isDesynced then
+        if raknet and raknet.add_send_hook then
+            raknet.add_send_hook(raknet_desync.rakhook)
+        elseif raknet and raknet.desync then
+            raknet.desync(true)
+        end
+        if raknet_desync.showServerPosition then
+            raknet_desync.createGhostCharacter()
+        end
+    else
+        if raknet and raknet.remove_send_hook then
+            raknet.remove_send_hook(raknet_desync.rakhook)
+        elseif raknet and raknet.desync then
+            raknet.desync(false)
+        end
+        raknet_desync.destroyGhost()
+    end
+end
+
+DesyncToggleBtn.MouseButton1Click:Connect(function() SetDesyncState(not isDesynced) end)
+SSPToggleBtn.MouseButton1Click:Connect(function()
+    raknet_desync.showServerPosition = not raknet_desync.showServerPosition
+    UpdateSSPBtn(raknet_desync.showServerPosition)
+    if isDesynced then
+        if raknet_desync.showServerPosition then raknet_desync.createGhostCharacter() else raknet_desync.destroyGhost() end
+    end
+end)
+TracerToggleBtn.MouseButton1Click:Connect(function() raknet_desync.showTracer = not raknet_desync.showTracer; UpdateTracerBtn(raknet_desync.showTracer) end)
+DistToggleBtn.MouseButton1Click:Connect(function() raknet_desync.showDistance = not raknet_desync.showDistance; UpdateDistBtn(raknet_desync.showDistance) end)
+PulseToggleBtn.MouseButton1Click:Connect(function() raknet_desync.pulseEffect = not raknet_desync.pulseEffect; UpdatePulseBtn(raknet_desync.pulseEffect) end)
+
+-- CÀI ĐẶT MÀU SẮC (RGB)
+local ColorLabel = Instance.new("TextLabel")
+ColorLabel.Size = UDim2.new(1, 0, 0, 20)
+ColorLabel.Position = UDim2.new(0, 0, 0, 260)
+ColorLabel.BackgroundTransparency = 1
+ColorLabel.TextColor3 = Color3.fromRGB(200, 200, 200)
+ColorLabel.Text = "Ghost Color (R, G, B)"
+ColorLabel.Font = Enum.Font.Gotham
+ColorLabel.TextSize = 12
+ColorLabel.Parent = MainFrame
+
+local ColorFrame = Instance.new("Frame")
+ColorFrame.Size = UDim2.new(0.85, 0, 0, 30)
+ColorFrame.Position = UDim2.new(0.075, 0, 0, 285)
+ColorFrame.BackgroundTransparency = 1
+ColorFrame.Parent = MainFrame
+
+local function CreateRGBBox(name, posX, defaultVal)
+    local Box = Instance.new("TextBox")
+    Box.Name = name
+    Box.Size = UDim2.new(0.3, 0, 1, 0)
+    Box.Position = UDim2.new(posX, 0, 0, 0)
+    Box.BackgroundColor3 = Color3.fromRGB(40, 40, 45)
+    Box.TextColor3 = Color3.fromRGB(255, 255, 255)
+    Box.Font = Enum.Font.Gotham
+    Box.TextSize = 13
+    Box.Text = tostring(defaultVal)
+    Box.Parent = ColorFrame
+    Instance.new("UICorner", Box).CornerRadius = UDim.new(0, 4)
+    return Box
+end
+
+local RBox = CreateRGBBox("RBox", 0, 0)
+local GBox = CreateRGBBox("GBox", 0.35, 200)
+local BBox = CreateRGBBox("BBox", 0.70, 255)
+
+local ApplyColorBtn = Instance.new("TextButton")
+ApplyColorBtn.Size = UDim2.new(0.85, 0, 0, 30)
+ApplyColorBtn.Position = UDim2.new(0.075, 0, 0, 325)
+ApplyColorBtn.BackgroundColor3 = Color3.fromRGB(60, 100, 200)
+ApplyColorBtn.TextColor3 = Color3.fromRGB(255, 255, 255)
+ApplyColorBtn.Font = Enum.Font.GothamMedium
+ApplyColorBtn.TextSize = 13
+ApplyColorBtn.Text = "Apply Color"
+ApplyColorBtn.Parent = MainFrame
+Instance.new("UICorner", ApplyColorBtn).CornerRadius = UDim.new(0, 6)
+
+ApplyColorBtn.MouseButton1Click:Connect(function()
+    local r, g, b = tonumber(RBox.Text) or 0, tonumber(GBox.Text) or 200, tonumber(BBox.Text) or 255
+    r, g, b = math.clamp(r, 0, 255), math.clamp(g, 0, 255), math.clamp(b, 0, 255)
+    local lightenFactor = 1.5
+    raknet_desync.glowColor = Color3.fromRGB(r, g, b)
+    raknet_desync.outerColor = Color3.fromRGB(math.min(r * lightenFactor, 255), math.min(g * lightenFactor, 255), math.min(b * lightenFactor, 255))
+    if isDesynced and raknet_desync.showServerPosition then raknet_desync.createGhostCharacter() end
+end)
+
+-- ==========================================
+-- HỆ THỐNG CÀI ĐẶT PHÍM TẮT (CUSTOM KEYBINDS)
+-- ==========================================
+local HotkeyLabel = Instance.new("TextLabel")
+HotkeyLabel.Size = UDim2.new(1, 0, 0, 20)
+HotkeyLabel.Position = UDim2.new(0, 0, 0, 370)
+HotkeyLabel.BackgroundTransparency = 1
+HotkeyLabel.TextColor3 = Color3.fromRGB(200, 200, 200)
+HotkeyLabel.Text = "- HOTKEYS SETUP -"
+HotkeyLabel.Font = Enum.Font.GothamBold
+HotkeyLabel.TextSize = 12
+HotkeyLabel.Parent = MainFrame
+
+local function CreateKeybindButton(name, defaultKeyName, posY)
+    local Btn = Instance.new("TextButton")
+    Btn.Name = name
+    Btn.Size = UDim2.new(0.85, 0, 0, 30)
+    Btn.Position = UDim2.new(0.075, 0, 0, posY)
+    Btn.BackgroundColor3 = Color3.fromRGB(40, 40, 45)
+    Btn.TextColor3 = Color3.fromRGB(255, 255, 255)
+    Btn.Font = Enum.Font.GothamMedium
+    Btn.TextSize = 12
+    Btn.Text = defaultKeyName
+    Btn.Parent = MainFrame
+    Instance.new("UICorner", Btn).CornerRadius = UDim.new(0, 6)
+    return Btn
+end
+
+local BindDesyncBtn = CreateKeybindButton("BindDesync", "Bind Desync: [ Z ]", 395)
+local BindUIBtn = CreateKeybindButton("BindUI", "Bind Toggle UI: [ RightControl ]", 435)
+
+local bindingAction = nil -- Biến trạng thái xem đang chờ nhập phím cho nút nào
+
+BindDesyncBtn.MouseButton1Click:Connect(function()
+    bindingAction = "Desync"
+    BindDesyncBtn.Text = "Press any key..."
+    BindDesyncBtn.BackgroundColor3 = Color3.fromRGB(80, 80, 90)
+end)
+
+BindUIBtn.MouseButton1Click:Connect(function()
+    bindingAction = "UI"
+    BindUIBtn.Text = "Press any key..."
+    BindUIBtn.BackgroundColor3 = Color3.fromRGB(80, 80, 90)
+end)
+
+S.UIS.InputBegan:Connect(function(input, gameProcessed)
+    -- 1. Nếu đang trong trạng thái chờ người dùng cài phím
+    if bindingAction then
+        if input.UserInputType == Enum.UserInputType.Keyboard then
+            local keyName = input.KeyCode.Name
+            
+            if bindingAction == "Desync" then
+                currentDesyncKey = input.KeyCode
+                BindDesyncBtn.Text = "Bind Desync: [ " .. keyName .. " ]"
+                BindDesyncBtn.BackgroundColor3 = Color3.fromRGB(40, 40, 45)
+            elseif bindingAction == "UI" then
+                currentToggleUIKey = input.KeyCode
+                BindUIBtn.Text = "Bind Toggle UI: [ " .. keyName .. " ]"
+                BindUIBtn.BackgroundColor3 = Color3.fromRGB(40, 40, 45)
+            end
+            
+            bindingAction = nil -- Thoát trạng thái chờ
+        end
+        return -- Dừng ở đây, không kích hoạt tính năng ngay lúc đang cài phím
+    end
+
+    -- 2. Nếu không cài phím thì kiểm tra xem phím bấm có trùng khớp không
+    if gameProcessed then return end -- Bỏ qua nếu đang chat hoặc gõ chữ
+
+    if input.KeyCode == currentDesyncKey then
+        SetDesyncState(not isDesynced)
+    elseif input.KeyCode == currentToggleUIKey then
+        MainFrame.Visible = not MainFrame.Visible
+    end
+end)
